@@ -22,7 +22,7 @@ jobs:
       - run: |
           cd _submodules/TypeScript
           git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-          git fetch --unshallow
+          git fetch --depth 170 # git rev-list --count 0693cc7...746c232
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       - uses: dtolnay/rust-toolchain@fcf085fcb4b4b8f63f96906cd713eb52181b5ea4 # stable
       - uses: ./.github/actions/setup-go

@@ -6071,7 +6071,7 @@ func (c *Checker) getIterationTypesOfIterableSlow(t *Type, r *IterationTypesReso
 		})
 		if len(validSignatures) == 0 {
 			if errorNode != nil && len(allSignatures) > 0 {
-				c.checkTypeAssignableToEx(t, r.getGlobalIterableType(), errorNode, nil /*headMessage*/, diagnosticOutput)
+				c.checkTypeAssignableTo(t, r.getGlobalIterableType(), errorNode, nil /*headMessage*/)
 			}
 			return IterationTypes{}
 		}

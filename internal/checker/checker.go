@@ -5905,7 +5905,10 @@ func (c *Checker) getIterationTypesOfIterable(t *Type, use IterationUse, errorNo
 		return cached
 	}
 	result := c.getIterationTypesOfIterableWorker(t, use, errorNode)
-	c.iterationTypesCache[key] = result
+	// Don't cache empty results when error reporting is requested, to ensure errors are reported for each call site
+	if result.hasTypes() || errorNode == nil {
+		c.iterationTypesCache[key] = result
+	}
 	return result
 }
 

@@ -481,7 +481,7 @@ const (
 	IterationUseAsyncYieldStar           = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseYieldStarFlag
 	IterationUseGeneratorReturnType      = IterationUseAllowsSyncIterablesFlag
 	IterationUseAsyncGeneratorReturnType = IterationUseAllowsAsyncIterablesFlag
-	IterationUseCacheFlags               = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseForOfFlag | IterationUseReportError
+	IterationUseCacheFlags               = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseForOfFlag | IterationUseYieldStarFlag | IterationUseSpreadFlag | IterationUseDestructuringFlag | IterationUseReportError
 )
 
 type IterationTypes struct {
@@ -5905,7 +5905,10 @@ func (c *Checker) getIterationTypesOfIterable(t *Type, use IterationUse, errorNo
 		return cached
 	}
 	result := c.getIterationTypesOfIterableWorker(t, use, errorNode)
-	c.iterationTypesCache[key] = result
+	// Don't cache empty results when error reporting is requested, to ensure errors are reported for each call site
+	if result.hasTypes() || errorNode == nil {
+		c.iterationTypesCache[key] = result
+	}
 	return result
 }
 
@@ -6065,10 +6068,18 @@ func (c *Checker) getIterationTypesOfIterableSlow(t *Type, r *IterationTypesReso
 		if IsTypeAny(methodType) {
 			return IterationTypes{c.anyType, c.anyType, c.anyType}
 		}
-		if signatures := c.getSignaturesOfType(methodType, SignatureKindCall); len(signatures) != 0 {
-			iteratorType := c.getIntersectionType(core.Map(signatures, c.getReturnTypeOfSignature))
-			return c.getIterationTypesOfIteratorWorker(iteratorType, r, errorNode, diagnosticOutput)
+		allSignatures := c.getSignaturesOfType(methodType, SignatureKindCall)
+		validSignatures := core.Filter(allSignatures, func(sig *Signature) bool {
+			return c.getMinArgumentCount(sig) == 0
+		})
+		if len(validSignatures) == 0 {
+			if errorNode != nil && len(allSignatures) > 0 {
+				c.checkTypeAssignableToEx(t, r.getGlobalIterableType(), errorNode, nil /*headMessage*/, diagnosticOutput)
+			}
+			return IterationTypes{}
 		}
+		iteratorType := c.getIntersectionType(core.Map(validSignatures, c.getReturnTypeOfSignature))
+		return c.getIterationTypesOfIteratorWorker(iteratorType, r, errorNode, diagnosticOutput)
 	}
 	return IterationTypes{}
 }

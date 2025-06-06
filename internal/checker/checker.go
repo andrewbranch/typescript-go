@@ -481,7 +481,7 @@ const (
 	IterationUseAsyncYieldStar           = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseYieldStarFlag
 	IterationUseGeneratorReturnType      = IterationUseAllowsSyncIterablesFlag
 	IterationUseAsyncGeneratorReturnType = IterationUseAllowsAsyncIterablesFlag
-	IterationUseCacheFlags               = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseForOfFlag | IterationUseReportError
+	IterationUseCacheFlags               = IterationUseAllowsSyncIterablesFlag | IterationUseAllowsAsyncIterablesFlag | IterationUseForOfFlag | IterationUseYieldStarFlag | IterationUseSpreadFlag | IterationUseDestructuringFlag | IterationUseReportError
 )
 
 type IterationTypes struct {
@@ -5748,9 +5748,7 @@ func (c *Checker) getIteratedTypeOrElementType(use IterationUse, inputType *Type
 	// downlevelIteration is requested.
 	if uplevelIteration || downlevelIteration || allowAsyncIterables {
 		// We only report errors for an invalid iterable type in ES2015 or higher.
-		fmt.Printf("DEBUG: getIteratedTypeOrElementType calling getIterationTypesOfIterable for use=%d\n", use)
 		iterationTypes := c.getIterationTypesOfIterable(inputType, use, core.IfElse(uplevelIteration, errorNode, nil))
-		fmt.Printf("DEBUG: getIterationTypesOfIterable returned yieldType=%v\n", iterationTypes.yieldType != nil)
 		if checkAssignability {
 			if iterationTypes.nextType != nil {
 				var diagnostic *diagnostics.Message
@@ -5771,7 +5769,6 @@ func (c *Checker) getIteratedTypeOrElementType(use IterationUse, inputType *Type
 		}
 		if iterationTypes.yieldType != nil || uplevelIteration {
 			if iterationTypes.yieldType == nil {
-				fmt.Printf("DEBUG: iterationTypes.yieldType is nil, returning nil\n")
 				return nil
 			}
 			if possibleOutOfBounds {
@@ -5903,13 +5900,10 @@ func (c *Checker) getIterationTypesOfIterable(t *Type, use IterationUse, errorNo
 	if IsTypeAny(t) {
 		return IterationTypes{c.anyType, c.anyType, c.anyType}
 	}
-	fmt.Printf("DEBUG: getIterationTypesOfIterable called with use=%d, errorNode=%v\n", use, errorNode != nil)
 	key := IterationTypesKey{typeId: t.id, use: use&IterationUseCacheFlags | core.IfElse(errorNode != nil, IterationUseReportError, 0)}
 	if cached, ok := c.iterationTypesCache[key]; ok {
-		fmt.Printf("DEBUG: getIterationTypesOfIterable cache hit\n")
 		return cached
 	}
-	fmt.Printf("DEBUG: getIterationTypesOfIterable cache miss\n")
 	result := c.getIterationTypesOfIterableWorker(t, use, errorNode)
 	c.iterationTypesCache[key] = result
 	return result

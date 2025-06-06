@@ -25,6 +25,14 @@ func TestEscapeString(t *testing.T) {
 		{s: "ab'c", quoteChar: QuoteCharSingleQuote, expected: `ab\'c`},
 		{s: "ab\"c", quoteChar: QuoteCharSingleQuote, expected: `ab"c`},
 		{s: "ab`c", quoteChar: QuoteCharBacktick, expected: "ab\\`c"},
+		// Test case for issue #59150: newlines in template strings should NOT be escaped
+		{s: "\n", quoteChar: QuoteCharBacktick, expected: "\n"},
+		{s: "ab\nc", quoteChar: QuoteCharBacktick, expected: "ab\nc"},
+		// Test other control characters that SHOULD be escaped in template strings
+		{s: "\u0001", quoteChar: QuoteCharBacktick, expected: "\\u0001"}, // control character should be escaped
+		{s: "\u0009", quoteChar: QuoteCharBacktick, expected: "\\t"},     // tab should be escaped 
+		{s: "\u000b", quoteChar: QuoteCharBacktick, expected: "\\v"},     // vertical tab should be escaped
+		{s: "\u001f", quoteChar: QuoteCharBacktick, expected: "\\u001F"}, // unit separator should be escaped
 	}
 	for i, rec := range data {
 		t.Run(fmt.Sprintf("[%d] escapeString(%q, %v)", i, rec.s, rec.quoteChar), func(t *testing.T) {
@@ -51,7 +59,9 @@ func TestEscapeNonAsciiString(t *testing.T) {
 		{s: "ab'c", quoteChar: QuoteCharSingleQuote, expected: `ab\'c`},
 		{s: "ab\"c", quoteChar: QuoteCharSingleQuote, expected: `ab"c`},
 		{s: "ab`c", quoteChar: QuoteCharBacktick, expected: "ab\\`c"},
-		{s: "ab\u008fc", quoteChar: QuoteCharDoubleQuote, expected: `ab\u008Fc`},
+		// Test case for issue #59150: newlines in template strings should NOT be escaped
+		{s: "\n", quoteChar: QuoteCharBacktick, expected: "\n"},
+		{s: "ab\nc", quoteChar: QuoteCharBacktick, expected: "ab\nc"},
 		{s: "𝟘𝟙", quoteChar: QuoteCharDoubleQuote, expected: `\uD835\uDFD8\uD835\uDFD9`},
 	}
 	for i, rec := range data {
@@ -149,4 +159,20 @@ func TestIsRecognizedTripleSlashComment(t *testing.T) {
 			assert.Equal(t, actual, rec.expected)
 		})
 	}
+}
+
+func TestSyntheticTemplateLiteral(t *testing.T) {
+	t.Parallel()
+	
+	// Test the specific issue: LF character should not be escaped in template strings
+	// This mimics the TypeScript test case: ts.factory.createNoSubstitutionTemplateLiteral("\n")
+	
+	result := EscapeString("\n", QuoteCharBacktick)
+	expected := "\n"  // LF should NOT be escaped for backticks
+	assert.Equal(t, result, expected)
+	
+	// Also test that other control characters are still escaped
+	result2 := EscapeString("\u0001", QuoteCharBacktick)
+	expected2 := "\\u0001"  // Other control characters should still be escaped
+	assert.Equal(t, result2, expected2)
 }

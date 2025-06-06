@@ -6065,10 +6065,18 @@ func (c *Checker) getIterationTypesOfIterableSlow(t *Type, r *IterationTypesReso
 		if IsTypeAny(methodType) {
 			return IterationTypes{c.anyType, c.anyType, c.anyType}
 		}
-		if signatures := c.getSignaturesOfType(methodType, SignatureKindCall); len(signatures) != 0 {
-			iteratorType := c.getIntersectionType(core.Map(signatures, c.getReturnTypeOfSignature))
-			return c.getIterationTypesOfIteratorWorker(iteratorType, r, errorNode, diagnosticOutput)
+		allSignatures := c.getSignaturesOfType(methodType, SignatureKindCall)
+		validSignatures := core.Filter(allSignatures, func(sig *Signature) bool {
+			return c.getMinArgumentCount(sig) == 0
+		})
+		if len(validSignatures) == 0 {
+			if errorNode != nil && len(allSignatures) > 0 {
+				c.checkTypeAssignableToEx(t, r.getGlobalIterableType(), errorNode, nil /*headMessage*/, diagnosticOutput)
+			}
+			return IterationTypes{}
 		}
+		iteratorType := c.getIntersectionType(core.Map(validSignatures, c.getReturnTypeOfSignature))
+		return c.getIterationTypesOfIteratorWorker(iteratorType, r, errorNode, diagnosticOutput)
 	}
 	return IterationTypes{}
 }

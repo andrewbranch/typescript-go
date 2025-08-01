@@ -4,8 +4,8 @@ from matplotlib.patches import FancyBboxPatch, ConnectionPatch
 import numpy as np
 
 def create_snapshot_creation():
-    fig, ax = plt.subplots(1, 1, figsize=(16, 8))
-    ax.set_xlim(0, 16)
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    ax.set_xlim(0, 12)
     ax.set_ylim(0, 10)
     ax.axis('off')
     
@@ -23,7 +23,7 @@ def create_snapshot_creation():
     fig.patch.set_facecolor(colors['bg'])
     
     # Helper function to create boxes
-    def create_box(x, y, width, height, text, color, text_size=10, text_color='white', alpha=1.0):
+    def create_box(x, y, width, height, text, color, text_size=14, text_color='white', alpha=1.0):
         box = FancyBboxPatch((x, y), width, height,
                             boxstyle="round,pad=0.1",
                             facecolor=color, edgecolor='white', linewidth=1.5, alpha=alpha)
@@ -42,25 +42,25 @@ def create_snapshot_creation():
     step1_y = 7
     
     # Initial inputs
-    pending_center = create_box(1, step1_y, 2.5, 1, 'Pending\nChanges', colors['input'], 10)
-    overlay_center = create_box(1, step1_y - 1.5, 2.5, 1, 'Overlay\nState', colors['input'], 10)
+    pending_center = create_box(1, step1_y, 2.5, 1, 'Pending\nChanges', colors['input'], 14)
+    overlay_center = create_box(1, step1_y - 1.5, 2.5, 1, 'Overlay\nState', colors['input'], 14)
     
     # Container for step 1 outputs
     container_center = create_box(5, step1_y - 1, 3.5, 2.5, '', colors['container'], 10, alpha=0.3)
     
     # Step 1 outputs inside container
-    new_overlay_center = create_box(5.25, step1_y, 3, 0.8, 'New Overlay State', colors['process'], 9)
-    file_summary_center = create_box(5.25, step1_y - 1.2, 3, 0.8, 'FileChangeSummary', colors['process'], 9)
+    new_overlay_center = create_box(5.25, step1_y, 3, 0.8, 'New Overlay State', colors['process'], 12)
+    file_summary_center = create_box(5.25, step1_y - 1.2, 3, 0.8, 'FileChangeSummary', colors['process'], 12)
     
-    # STEP 2: Additional inputs (moved right)
+    # STEP 2: Additional inputs (moved left, underneath step 1 outputs)
     step2_y = 4
     
-    # Additional inputs
-    current_snap_center = create_box(10, step2_y, 2.5, 1, 'Current\nSnapshot', colors['snapshot'], 10)
-    ref_cache_center = create_box(10, step2_y - 1.5, 2.5, 1, 'Ref-counted\nCaches', colors['input'], 10)
+    # Additional inputs - moved left to be underneath "New Overlay State" and "FileChangeSummary"
+    current_snap_center = create_box(5.25, step2_y, 3, 1, 'Current\nSnapshot', colors['snapshot'], 14)
+    ref_cache_center = create_box(5.25, step2_y - 1.5, 3, 1, 'Ref-counted\nCaches', colors['input'], 14)
     
-    # Final output
-    final_center = create_box(13.5, 3.25, 2.5, 1.5, 'New Snapshot', colors['output'], 11)
+    # Final output - moved left
+    final_center = create_box(9.5, 3.25, 2.5, 1.5, 'New Snapshot', colors['output'], 15)
     
     # ARROWS
     
@@ -73,17 +73,17 @@ def create_snapshot_creation():
                 container_center[0] - 1.75, container_center[1] - 0.5, 
                 colors['process'])
     
-    # Container to final output
+    # Container to final output - updated for shorter distance
     create_arrow(container_center[0] + 1.75, container_center[1], 
                 final_center[0] - 1.25, final_center[1], 
                 colors['process'])
     
-    # Step 2: Additional inputs to final result
-    create_arrow(current_snap_center[0] + 1.25, current_snap_center[1], 
+    # Step 2: Additional inputs to final result - updated for shorter distance
+    create_arrow(current_snap_center[0] + 1.5, current_snap_center[1], 
                 final_center[0] - 1.25, final_center[1] + 0.3, 
                 colors['snapshot'])
     
-    create_arrow(ref_cache_center[0] + 1.25, ref_cache_center[1], 
+    create_arrow(ref_cache_center[0] + 1.5, ref_cache_center[1], 
                 final_center[0] - 1.25, final_center[1] - 0.3, 
                 colors['input'])
     
@@ -92,12 +92,12 @@ def create_snapshot_creation():
            color=colors['text'], fontweight='bold',
            bbox=dict(boxstyle="round,pad=0.4", facecolor=colors['process'], alpha=0.3))
     
-    ax.text(11.25, 5.5, 'Step 2: Combine Resources', fontsize=12, ha='center', va='center',
+    ax.text(6.75, 5.5, 'Step 2: Combine Resources', fontsize=12, ha='center', va='center',
            color=colors['text'], fontweight='bold',
            bbox=dict(boxstyle="round,pad=0.4", facecolor=colors['snapshot'], alpha=0.3))
     
-    # Add explanatory text
-    ax.text(8, 1, 'All inputs combine to create an immutable snapshot\nwith updated file states and cached resources', 
+    # Add explanatory text - centered for smaller canvas
+    ax.text(6, 1, 'All inputs combine to create an immutable snapshot\nwith updated file states and cached resources', 
            fontsize=10, ha='center', va='center',
            color=colors['text'], alpha=0.8, style='italic')
     
@@ -108,7 +108,7 @@ def create_snapshot_creation():
 if __name__ == "__main__":
     fig = create_snapshot_creation()
     fig.patch.set_facecolor('#1a1a1a')  # Dark background
-    plt.savefig('presentation-diagrams/lsp-presentation/snapshot-creation.png', 
+    plt.savefig('lsp-presentation/snapshot-creation.png', 
                 dpi=300, bbox_inches='tight', facecolor='#1a1a1a')
     plt.close()
     print("Generated: snapshot-creation.png")

@@ -23,7 +23,7 @@ def create_lsp_hierarchy():
     fig.patch.set_facecolor(colors['bg'])
     
     # Helper function to create boxes
-    def create_box(x, y, width, height, text, color, text_size=10, text_color='white'):
+    def create_box(x, y, width, height, text, color, text_size=14, text_color='white'):
         box = FancyBboxPatch((x, y), width, height,
                             boxstyle="round,pad=0.1",
                             facecolor=color, edgecolor='white', linewidth=1.5)
@@ -53,7 +53,7 @@ def create_lsp_hierarchy():
     session_y = 9.5
     
     for i, ((item, width), x_pos) in enumerate(zip(session_items, x_positions)):
-        create_box(x_pos, session_y, width, 1.2, item, colors['cache'], 9)
+        create_box(x_pos, session_y, width, 1.2, item, colors['cache'], 12)
         # Connect to session with straight lines
         connect_boxes(x_pos + width/2, session_y + 1.2, session_center_x, session_bottom)
     
@@ -66,10 +66,10 @@ def create_lsp_hierarchy():
     connect_boxes(session_center_x, session_bottom, snapshot_center_x, snapshot_y + 1.2)
     
     # Snapshot components - better positioning
-    create_box(1, 5.5, 2.5, 1, 'Cached FS', colors['cache'], 10)
-    create_box(4.5, 5.5, 2.5, 1, 'Open file state', colors['cache'], 10)
-    create_box(8, 5.5, 3.5, 1, 'ProjectCollection', colors['project'], 11)
-    create_box(12.5, 5.5, 3, 1, 'ConfigFileRegistry', colors['config'], 10)
+    create_box(1, 5.5, 2.5, 1, 'Cached FS', colors['cache'], 14)
+    create_box(4.5, 5.5, 2.5, 1, 'Open file state', colors['cache'], 14)
+    create_box(8, 5.5, 3.5, 1, 'ProjectCollection', colors['project'], 14)
+    create_box(12.5, 5.5, 3, 1, 'ConfigFileRegistry', colors['config'], 14)
     
     # Connect snapshot to its components
     connect_boxes(snapshot_center_x, snapshot_y, 2.25, 6.5)  # Cached FS
@@ -78,16 +78,16 @@ def create_lsp_hierarchy():
     connect_boxes(snapshot_center_x, snapshot_y, 14, 6.5)    # ConfigFileRegistry
     
     # Project details - positioned under ProjectCollection
-    create_box(6, 3.5, 3, 0.8, 'File watcher registrations', colors['cache'], 9)
-    create_box(6, 2.5, 3, 0.8, 'Program, LS, CheckerPool', colors['cache'], 9)
+    create_box(6, 3.5, 3, 0.8, 'File watcher registrations', colors['cache'], 12)
+    create_box(6, 2.5, 3, 0.8, 'Program, LS, CheckerPool', colors['cache'], 12)
     
     # Connect ProjectCollection to its details
     connect_boxes(9.75, 5.5, 7.5, 4.3)  # File watcher registrations
     connect_boxes(9.75, 5.5, 7.5, 3.3)  # Program, LS, CheckerPool
     
     # ConfigFileRegistry details - positioned under ConfigFileRegistry
-    create_box(11, 3.5, 3, 0.8, 'File watcher registrations', colors['cache'], 9)
-    create_box(11, 2.5, 3, 0.8, 'ParsedCommandLine', colors['cache'], 9)
+    create_box(11, 3.5, 3, 0.8, 'File watcher registrations', colors['cache'], 12)
+    create_box(11, 2.5, 3, 0.8, 'ParsedCommandLine', colors['cache'], 12)
     
     # Connect ConfigFileRegistry to its details
     connect_boxes(14, 5.5, 12.5, 4.3)  # File watcher registrations
@@ -114,7 +114,7 @@ def create_lsp_hierarchy():
 if __name__ == "__main__":
     fig = create_lsp_hierarchy()
     fig.patch.set_facecolor('#1a1a1a')  # Dark background
-    plt.savefig('presentation-diagrams/lsp-presentation/lsp-hierarchy.png', 
+    plt.savefig('lsp-presentation/lsp-hierarchy.png', 
                 dpi=300, bbox_inches='tight', facecolor='#1a1a1a')
     plt.close()
     print("Generated: lsp-hierarchy.png")

@@ -41,7 +41,7 @@ def create_lsp_request_flow():
                                linewidth=2)
     ax.add_patch(start_box)
     ax.text(3, 8.9, 'LSP Request (GetLanguageService)\nflushChanges() 🔒', ha='center', va='center', 
-            fontsize=13, weight='bold', color='white')
+            fontsize=16, weight='bold', color='white')
     
     # Decision diamond - has changes?
     diamond_points = [(3, 7.6), (4.5, 6.8), (3, 6.0), (1.5, 6.8)]
@@ -50,7 +50,7 @@ def create_lsp_request_flow():
                              edgecolor='white', linewidth=2)
     ax.add_patch(diamond)
     ax.text(3, 6.8, 'Has file changes\nor ATA changes?', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Combined UpdateSnapshot box - used by both paths
     update_box = FancyBboxPatch((6, 5.5), 4.5, 2,
@@ -60,7 +60,7 @@ def create_lsp_request_flow():
                                linewidth=2)
     ax.add_patch(update_box)
     ax.text(8.25, 6.5, 'UpdateSnapshot()\n🔒 snapshotMu.Lock()\n\n• Clone snapshot • Apply changes\n• Include requestedURIs\n• Guarantees project loaded', 
-            ha='center', va='center', fontsize=12, weight='bold', color='white')
+            ha='center', va='center', fontsize=14, weight='bold', color='white')
     
     # NO path - Use current snapshot
     no_box = FancyBboxPatch((0.5, 4.5), 3, 0.8,
@@ -70,7 +70,7 @@ def create_lsp_request_flow():
                             linewidth=2)
     ax.add_patch(no_box)
     ax.text(2, 4.9, 'Use current snapshot\n🔒 snapshotMu.RLock()', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Project check diamond - only for NO path
     project_diamond_points = [(2, 3.6), (3.2, 3.0), (2, 2.4), (0.8, 3.0)]
@@ -79,7 +79,7 @@ def create_lsp_request_flow():
                                      edgecolor='white', linewidth=2)
     ax.add_patch(project_diamond)
     ax.text(2, 3.0, 'Project loaded\n& up-to-date?', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Final result
     result_box = FancyBboxPatch((6, 1.5), 4.5, 0.8,
@@ -100,7 +100,7 @@ def create_lsp_request_flow():
                              linewidth=2)
     ax.add_patch(ref_box)
     ax.text(13.75, 7.9, 'Ref Counting:\n• programCounter.Ref()\n• extendedConfigCache.Ref()\n• oldSnapshot.Deref()\n• dispose if refCount = 0', 
-            ha='center', va='center', fontsize=11, weight='bold', color='white')
+            ha='center', va='center', fontsize=13, weight='bold', color='white')
     
     # Background tasks
     bg_box = FancyBboxPatch((12, 4.5), 3.5, 2.2,
@@ -110,7 +110,7 @@ def create_lsp_request_flow():
                             linewidth=2)
     ax.add_patch(bg_box)
     ax.text(13.75, 5.6, 'Background Tasks:\n• Logging: builder logs,\n  project changes\n• File Watching: update watchers\n• ATA: trigger\n• Diagnostics: refresh', 
-            ha='center', va='center', fontsize=11, weight='bold', color='white')
+            ha='center', va='center', fontsize=13, weight='bold', color='white')
     
     # Main flow arrows
     ax.annotate('', xy=(3, 7.6), xytext=(3, 8.3),
@@ -192,7 +192,7 @@ def create_snapshot_lifecycle():
                               linewidth=2)
     ax.add_patch(old_snap)
     ax.text(2.5, 6.75, 'Old Snapshot\nrefCount: 1', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Clone operation
     clone_box = FancyBboxPatch((6, 6.5), 3, 2,
@@ -202,7 +202,7 @@ def create_snapshot_lifecycle():
                                linewidth=2)
     ax.add_patch(clone_box)
     ax.text(7.5, 7.5, 'snapshot.Clone()\n• Create new snapshot\n• Ref new programs\n• Ref extended configs', 
-            ha='center', va='center', fontsize=10, weight='bold', color='white')
+            ha='center', va='center', fontsize=12, weight='bold', color='white')
     
     # New snapshot
     new_snap = FancyBboxPatch((10, 6), 3, 1.5,
@@ -212,7 +212,7 @@ def create_snapshot_lifecycle():
                               linewidth=2)
     ax.add_patch(new_snap)
     ax.text(11.5, 6.75, 'New Snapshot\nrefCount: 1', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Deref operation
     deref_box = FancyBboxPatch((3, 3.5), 4, 1.5,
@@ -222,7 +222,7 @@ def create_snapshot_lifecycle():
                                linewidth=2)
     ax.add_patch(deref_box)
     ax.text(5, 4.25, 'oldSnapshot.Deref()\nreturns true if refCount == 0\n(ready for disposal)', 
-            ha='center', va='center', fontsize=10, weight='bold', color='white')
+            ha='center', va='center', fontsize=12, weight='bold', color='white')
     
     # Disposal
     dispose_box = FancyBboxPatch((8, 2), 5, 1.5,
@@ -232,7 +232,7 @@ def create_snapshot_lifecycle():
                                  linewidth=2)
     ax.add_patch(dispose_box)
     ax.text(10.5, 2.75, 'oldSnapshot.dispose()\n• Deref programs in program counter\n• Deref extended config cache entries\n• Free memory', 
-            ha='center', va='center', fontsize=10, weight='bold', color='white')
+            ha='center', va='center', fontsize=12, weight='bold', color='white')
     
     # Arrows
     ax.annotate('', xy=(6, 7.5), xytext=(4, 6.75),

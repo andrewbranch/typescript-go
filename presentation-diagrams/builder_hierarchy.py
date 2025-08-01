@@ -61,7 +61,7 @@ def create_builder_hierarchy():
                                     linewidth=2)
     ax.add_patch(fs_builder_box)
     ax.text(3.5, 8.1, 'snapshotFSBuilder\nManages filesystem state', ha='center', va='center', 
-            fontsize=13, weight='bold', color='white')
+            fontsize=16, weight='bold', color='white')
     
     # Dirty map for FS
     fs_dirty_box = FancyBboxPatch((7.5, 7.5), 4, 1.2,
@@ -71,7 +71,7 @@ def create_builder_hierarchy():
                                   linewidth=2)
     ax.add_patch(fs_dirty_box)
     ax.text(9.5, 8.1, 'dirty.Map[string, File]\nDisk file changes', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Finalized FS
     fs_final_box = FancyBboxPatch((13, 7.5), 4, 1.2,
@@ -81,7 +81,7 @@ def create_builder_hierarchy():
                                   linewidth=2)
     ax.add_patch(fs_final_box)
     ax.text(15, 8.1, 'Finalized FS\nImmutable file system', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Builder 2: projectCollectionBuilder
     proj_builder_box = FancyBboxPatch((1, 5.5), 5, 1.2,
@@ -91,7 +91,7 @@ def create_builder_hierarchy():
                                       linewidth=2)
     ax.add_patch(proj_builder_box)
     ax.text(3.5, 6.1, 'projectCollectionBuilder\nManages project collection', ha='center', va='center', 
-            fontsize=13, weight='bold', color='white')
+            fontsize=16, weight='bold', color='white')
     
     # Dirty map for projects
     proj_dirty_box = FancyBboxPatch((7.5, 5.5), 4, 1.2,
@@ -101,7 +101,7 @@ def create_builder_hierarchy():
                                     linewidth=2)
     ax.add_patch(proj_dirty_box)
     ax.text(9.5, 6.1, 'dirty.Map[string, Project]\nProject changes', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Finalized projects
     proj_final_box = FancyBboxPatch((13, 5.5), 4, 1.2,
@@ -111,7 +111,7 @@ def create_builder_hierarchy():
                                     linewidth=2)
     ax.add_patch(proj_final_box)
     ax.text(15, 6.1, 'Finalized Projects\nImmutable project map', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Builder 3: configFileRegistryBuilder
     config_builder_box = FancyBboxPatch((1, 3.5), 5, 1.2,
@@ -121,7 +121,7 @@ def create_builder_hierarchy():
                                         linewidth=2)
     ax.add_patch(config_builder_box)
     ax.text(3.5, 4.1, 'configFileRegistryBuilder\nManages config file registry', ha='center', va='center', 
-            fontsize=13, weight='bold', color='white')
+            fontsize=16, weight='bold', color='white')
     
     # Dirty maps for config (two maps!)
     config_entries_box = FancyBboxPatch((7, 4), 3, 0.8,
@@ -131,7 +131,7 @@ def create_builder_hierarchy():
                                         linewidth=2)
     ax.add_patch(config_entries_box)
     ax.text(8.5, 4.4, 'dirty.Map[string,\nConfigFileEntry]', ha='center', va='center', 
-            fontsize=11, weight='bold', color='white')
+            fontsize=13, weight='bold', color='white')
     
     config_names_box = FancyBboxPatch((7, 2.8), 3, 0.8,
                                       boxstyle="round,pad=0.05",
@@ -140,7 +140,7 @@ def create_builder_hierarchy():
                                       linewidth=2)
     ax.add_patch(config_names_box)
     ax.text(8.5, 3.2, 'dirty.Map[string,\nConfigFileName]', ha='center', va='center', 
-            fontsize=11, weight='bold', color='white')
+            fontsize=13, weight='bold', color='white')
     
     # Finalized config
     config_final_box = FancyBboxPatch((13, 3.5), 4, 1.2,
@@ -150,7 +150,7 @@ def create_builder_hierarchy():
                                       linewidth=2)
     ax.add_patch(config_final_box)
     ax.text(15, 4.1, 'Finalized Config Registry\nImmutable config maps', ha='center', va='center', 
-            fontsize=12, weight='bold', color='white')
+            fontsize=14, weight='bold', color='white')
     
     # Arrows showing the flow
     # Builder to dirty map arrows
@@ -245,7 +245,7 @@ def create_builder_lifecycle():
                                 linewidth=2)
     ax.add_patch(phase1_box)
     ax.text(3.25, 8.25, '1. Initialize Builders\n• snapshotFSBuilder\n• projectCollectionBuilder\n• configFileRegistryBuilder', 
-            ha='center', va='center', fontsize=12, weight='bold', color='white')
+            ha='center', va='center', fontsize=15, weight='bold', color='white')
     
     # Phase 2: Apply Changes
     phase2_box = FancyBboxPatch((6.5, 7.5), 4.5, 1.5,
@@ -255,7 +255,7 @@ def create_builder_lifecycle():
                                 linewidth=2)
     ax.add_patch(phase2_box)
     ax.text(8.75, 8.25, '2. Apply Changes\n• File modifications\n• Project updates\n• Config changes', 
-            ha='center', va='center', fontsize=12, weight='bold', color='white')
+            ha='center', va='center', fontsize=15, weight='bold', color='white')
     
     # Phase 3: Finalize
     phase3_box = FancyBboxPatch((12, 7.5), 4.5, 1.5,
@@ -265,7 +265,7 @@ def create_builder_lifecycle():
                                 linewidth=2)
     ax.add_patch(phase3_box)
     ax.text(14.25, 8.25, '3. Finalize All\n• Build immutable maps\n• Create new snapshot\n• Return result', 
-            ha='center', va='center', fontsize=12, weight='bold', color='white')
+            ha='center', va='center', fontsize=15, weight='bold', color='white')
     
     # Arrows between phases
     ax.annotate('', xy=(6.5, 8.25), xytext=(5.5, 8.25),
@@ -291,7 +291,7 @@ def create_builder_lifecycle():
                                   linewidth=2)
         ax.add_patch(name_box)
         ax.text(3, y + 0.4, name, ha='center', va='center', 
-                fontsize=13, weight='bold', color='white')
+                fontsize=16, weight='bold', color='white')
         
         # Details
         details_box = FancyBboxPatch((5.5, y), 9, 0.8,
@@ -301,7 +301,7 @@ def create_builder_lifecycle():
                                      linewidth=1)
         ax.add_patch(details_box)
         ax.text(10, y + 0.4, details, ha='center', va='center', 
-                fontsize=11, color=colors['text'])
+                fontsize=13, color=colors['text'])
         
         # Arrow
         ax.annotate('', xy=(5.5, y + 0.4), xytext=(5, y + 0.4),

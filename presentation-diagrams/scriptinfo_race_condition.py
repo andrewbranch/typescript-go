@@ -44,9 +44,9 @@ def create_scriptinfo_race_condition():
                                    edgecolor='white', linewidth=2, alpha=0.8)
     ax.add_patch(scriptinfo_box)
     ax.text(6, 1.6, 'ScriptInfo (Mutable)', ha='center', va='center', 
-            fontsize=12, fontweight='bold', color='white')
+            fontsize=16, fontweight='bold', color='white')
     ax.text(6, 1.3, 'text: "content"\nlineMap: [0, 10, 25]', 
-            ha='center', va='center', fontsize=10, color='white')
+            ha='center', va='center', fontsize=12, color='white')
     
     # SERVER EVENTS ROW (top)
     # 1a. Hover request
@@ -56,7 +56,7 @@ def create_scriptinfo_race_condition():
                                 edgecolor=colors['server'], linewidth=2)
     ax.add_patch(server1_box)
     ax.text(2, 6.5, 'Hover Request\nline:2, char:5', ha='center', va='center', 
-            fontsize=11, fontweight='bold', color='white')
+            fontsize=14, fontweight='bold', color='white')
     
     # 2a. File change (moved left)
     server2_box = FancyBboxPatch((6.5, 6), 2, 1, 
@@ -65,7 +65,7 @@ def create_scriptinfo_race_condition():
                                 edgecolor=colors['problem'], linewidth=3)
     ax.add_patch(server2_box)
     ax.text(7.5, 6.5, 'File Change\n(concurrent)', ha='center', va='center', 
-            fontsize=11, fontweight='bold', color='white')
+            fontsize=14, fontweight='bold', color='white')
     
     # LANGUAGE SERVICE EVENTS ROW (bottom)
     # 1b. Convert to position (moved right)
@@ -75,7 +75,7 @@ def create_scriptinfo_race_condition():
                             edgecolor=colors['ls'], linewidth=2)
     ax.add_patch(ls1_box)
     ax.text(3.5, 3.5, 'Convert to\nposition: 30', ha='center', va='center', 
-            fontsize=11, fontweight='bold', color='white')
+            fontsize=14, fontweight='bold', color='white')
     
     # 2b. Compute hover
     ls2_box = FancyBboxPatch((5.5, 3), 2, 1, 
@@ -84,7 +84,7 @@ def create_scriptinfo_race_condition():
                             edgecolor=colors['ls'], linewidth=2)
     ax.add_patch(ls2_box)
     ax.text(6.5, 3.5, 'Compute\nHover', ha='center', va='center', 
-            fontsize=11, fontweight='bold', color='white')
+            fontsize=14, fontweight='bold', color='white')
     
     # 3b. Convert to line/char
     ls3_box = FancyBboxPatch((8.5, 3), 2, 1, 
@@ -93,18 +93,18 @@ def create_scriptinfo_race_condition():
                             edgecolor=colors['ls'], linewidth=2)
     ax.add_patch(ls3_box)
     ax.text(9.5, 3.5, 'Convert to\nline:char', ha='center', va='center', 
-            fontsize=11, fontweight='bold', color='white')
+            fontsize=14, fontweight='bold', color='white')
     
     # ARROWS
     # 1a -> 1b
     ax.arrow(2, 6, 1.5, -1.8, head_width=0.15, head_length=0.15, 
              fc=colors['server'], ec=colors['server'], linewidth=2)
-    ax.text(2.8, 5, 'triggers', ha='center', fontsize=11, fontweight='bold', color='white')
+    ax.text(2.8, 5, 'triggers', ha='center', fontsize=14, fontweight='bold', color='white')
     
     # 1b -> ScriptInfo
     ax.arrow(4, 3, 1, -1.5, head_width=0.15, head_length=0.15, 
              fc=colors['ls'], ec=colors['ls'], linewidth=2)
-    ax.text(4.5, 2.2, 'reads', ha='center', fontsize=11, fontweight='bold', color='white')
+    ax.text(4.5, 2.2, 'reads', ha='center', fontsize=14, fontweight='bold', color='white')
     
     # 1b -> 2b
     ax.arrow(4.5, 3.5, 0.8, 0, head_width=0.15, head_length=0.15, 
@@ -117,13 +117,13 @@ def create_scriptinfo_race_condition():
     # 3b -> ScriptInfo (the problematic read)
     ax.arrow(9, 3, -1.5, -1.5, head_width=0.15, head_length=0.15, 
              fc=colors['problem'], ec=colors['problem'], linewidth=3)
-    ax.text(8.2, 2.2, 'reads\n(WRONG!)', ha='center', fontsize=11, fontweight='bold', 
+    ax.text(8.2, 2.2, 'reads\n(WRONG!)', ha='center', fontsize=14, fontweight='bold', 
             color=colors['problem'])
     
     # 2a -> ScriptInfo (mutation) - improved text positioning
     ax.arrow(7.5, 6, -1, -4.5, head_width=0.15, head_length=0.15, 
              fc=colors['problem'], ec=colors['problem'], linewidth=3)
-    ax.text(6.5, 4.8, 'MUTATES\ntext & lineMap!', ha='center', fontsize=12, 
+    ax.text(6.5, 4.8, 'MUTATES\ntext & lineMap!', ha='center', fontsize=16, 
             fontweight='bold', color='white',
             bbox=dict(boxstyle="round,pad=0.3", facecolor=colors['problem'], alpha=0.9))
     
@@ -144,7 +144,7 @@ def create_scriptinfo_race_condition():
 if __name__ == "__main__":
     fig = create_scriptinfo_race_condition()
     fig.patch.set_facecolor('#1a1a1a')  # Dark background
-    plt.savefig('presentation-diagrams/lsp-presentation/scriptinfo-race-condition.png', 
+    plt.savefig('lsp-presentation/scriptinfo-race-condition.png', 
                 dpi=300, bbox_inches='tight', facecolor='#1a1a1a')
     plt.close()
     print("Generated: scriptinfo-race-condition.png")

@@ -51,7 +51,7 @@ def create_dirty_map_clean_state():
                               edgecolor='white',
                               linewidth=1.5)
         ax.add_patch(rect)
-        ax.text(3, y, entry, ha='center', va='center', fontsize=10, 
+        ax.text(3, y, entry, ha='center', va='center', fontsize=14, 
                 family='monospace', weight='bold', color='white')
     
     # Empty dirty entries column (right column)
@@ -63,17 +63,17 @@ def create_dirty_map_clean_state():
                                linestyle='--')
     ax.add_patch(empty_box)
     ax.text(9, 3.7, 'Empty\n(No pending changes)', ha='center', va='center', 
-            fontsize=11, style='italic', color=colors['text'], alpha=0.7)
+            fontsize=14, style='italic', color=colors['text'], alpha=0.7)
     
     # Add explanatory text
     ax.text(6, 1.2, 'Clean state: All data comes from the immutable base map\nNo changes are pending, so the dirty entries are empty',
-            ha='center', va='center', fontsize=10, style='italic', color=colors['text'], alpha=0.8)
+            ha='center', va='center', fontsize=12, style='italic', color=colors['text'], alpha=0.8)
     
     # Add arrows showing data flow
     ax.annotate('Read operations access base map directly', 
                 xy=(3, 3.5), xytext=(1, 1.8),
                 arrowprops=dict(arrowstyle='->', lw=2, color=colors['accent']),
-                fontsize=9, color=colors['accent'], weight='bold')
+                fontsize=12, color=colors['accent'], weight='bold')
     
     ax.set_xlim(0, 12)
     ax.set_ylim(1, 6)
@@ -125,7 +125,7 @@ def create_dirty_map_with_changes():
                                   linewidth=1.5,
                                   alpha=0.4)
             ax.add_patch(rect)
-            ax.text(3, y, entry, ha='center', va='center', fontsize=10, 
+            ax.text(3, y, entry, ha='center', va='center', fontsize=14, 
                     family='monospace', color='white', alpha=0.5, style='italic')
         else:
             # Normal style for unmodified entries
@@ -135,7 +135,7 @@ def create_dirty_map_with_changes():
                                   edgecolor='white',
                                   linewidth=1.5)
             ax.add_patch(rect)
-            ax.text(3, y, entry, ha='center', va='center', fontsize=10, 
+            ax.text(3, y, entry, ha='center', va='center', fontsize=14, 
                     family='monospace', weight='bold', color='white')
     
     # Dirty entries (right column)
@@ -145,35 +145,35 @@ def create_dirty_map_with_changes():
                                 edgecolor='white',
                                 linewidth=1.5)
     ax.add_patch(dirty_rect)
-    ax.text(9, 3.8, 'key2: new_value', ha='center', va='center', fontsize=10, 
+    ax.text(9, 3.8, 'key2: new_value', ha='center', va='center', fontsize=14, 
             family='monospace', weight='bold', color='white')
     
     # Add "CLONE" indicator
-    ax.text(9, 3.4, '(cloned & modified)', ha='center', va='center', fontsize=8, 
+    ax.text(9, 3.4, '(cloned & modified)', ha='center', va='center', fontsize=10, 
             style='italic', color=colors['text'], alpha=0.7)
     
     # Arrow showing the clone relationship
     ax.annotate('', xy=(7.5, 3.8), xytext=(4.5, 3.8),
                arrowprops=dict(arrowstyle='->', lw=3, color=colors['modified']))
-    ax.text(6, 4.1, 'clone & modify', ha='center', va='center', fontsize=9, 
+    ax.text(6, 4.1, 'clone & modify', ha='center', va='center', fontsize=12, 
             weight='bold', color=colors['modified'])
     
     # Add explanatory text
     ax.text(6, 1.2, 'When a change is made, the entry is cloned to the dirty map\nReads for that key now come from the dirty entry instead',
-            ha='center', va='center', fontsize=10, style='italic', color=colors['text'], alpha=0.8)
+            ha='center', va='center', fontsize=12, style='italic', color=colors['text'], alpha=0.8)
     
     # Add read flow arrows
     # Arrow for unmodified entries (read from base)
     ax.annotate('Unmodified entries\nread from base', 
                 xy=(2, 2.7), xytext=(0.5, 1.8),
                 arrowprops=dict(arrowstyle='->', lw=2, color=colors['accent']),
-                fontsize=8, color=colors['accent'], weight='bold', ha='center')
+                fontsize=10, color=colors['accent'], weight='bold', ha='center')
     
     # Arrow for modified entries (read from dirty)
     ax.annotate('Modified entry\nreads from dirty', 
                 xy=(9.5, 3.8), xytext=(11, 2.5),
                 arrowprops=dict(arrowstyle='->', lw=2, color=colors['dirty']),
-                fontsize=8, color=colors['dirty'], weight='bold', ha='center')
+                fontsize=10, color=colors['dirty'], weight='bold', ha='center')
     
     ax.set_xlim(0, 12)
     ax.set_ylim(1, 6)

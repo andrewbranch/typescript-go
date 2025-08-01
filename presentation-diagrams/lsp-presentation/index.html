@@ -15,10 +15,9 @@
         <div class="slides">
             <!-- Title slide -->
             <section>
-                <h1>LSP Server Architecture</h1>
-                <h3>TypeScript-Go Implementation</h3>
+                <h1>📸 Snapshot LSP</h1>
                 <p>
-                    <small>Understanding the Language Server Protocol</small>
+                    <small>with diagrams by Copilot</small>
                 </p>
             </section>
 
@@ -29,7 +28,7 @@
                     <li class="fragment">Old code relied on <strong>mutable data structures</strong></li>
                     <li class="fragment">Even with mutexes, we had <strong>data races</strong></li>
                     <li class="fragment">Code was becoming <strong>unmanageable</strong></li>
-                    <li class="fragment">Need for a <strong>snapshot-based architecture</strong></li>
+                    <li class="fragment">Hard to integrate <strong>another client</strong><br>(MCP or LSP plugin with API access)</li>
                 </ul>
                 <aside class="notes">
                     The original TypeScript language server had fundamental issues with concurrent access to mutable data structures. Even though we used mutexes, the complexity was growing and we were still hitting race conditions.
@@ -49,7 +48,7 @@
             <section class="compact-list">
                 <h2>The solution: Immutable snapshots</h2>
                 <div class="fragment">
-                    <p>We solve this by creating <strong>immutable snapshots</strong> that contain all info needed to serve a request.</p>
+                    <p>A snapshot is immutable state that can be <strong>read</strong> to serve a request or <strong>cloned</strong> to produce a new state capable of serving that request.</p>
                 </div>
                 <div class="fragment">
                     <p>📦 <strong>Programs were already immutable</strong> - this gets us pretty far!</p>

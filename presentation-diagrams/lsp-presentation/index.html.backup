@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <met                    <div class="fragment">
+                        <h3>❌ Forbidden</h3>
+                        <ul>
+                            <li>📁 <strong>File watching</strong></li>
+                            <li>📝 <strong>Logging</strong> (ideally)</li>
+                            <li>🚀 <strong>Project loading</strong></li>
+                            <li>📦 <strong>ATA</strong> (Automatic Type Acquisition)</li>
+                        </ul>
+                    </div>
+                    <div class="fragment">
+                        <h3>✅ Pure operations</h3>wport" content="width=device-width, initial-scale=1.0">
+    <title>LSP Server Architecture</title>
+    
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/reveal.css">
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/theme/black.css" id="theme">
+    <link rel="stylesheet" href="node_modules/reveal.js/plugin/highlight/monokai.css">
+    <link rel="stylesheet" href="custom.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Title slide -->
+            <section>
+                <h1>LSP Server Architecture</h1>
+                <h3>TypeScript-Go Implementation</h3>
+                <p>
+                    <small>Understanding the Language Server Protocol</small>
+                </p>
+            </section>
+
+            <!-- Problem Overview -->
+            <section>
+                <h2>The Problem We're Solving</h2>
+                <ul>
+                    <li class="fragment">Old code relied on <strong>mutable data structures</strong></li>
+                    <li class="fragment">Even with mutexes, we had <strong>data races</strong></li>
+                    <li class="fragment">Code was becoming <strong>unmanageable</strong></li>
+                    <li class="fragment">Need for a <strong>snapshot-based architecture</strong></li>
+                </ul>
+                <aside class="notes">
+                    The original TypeScript language server had fundamental issues with concurrent access to mutable data structures. Even though we used mutexes, the complexity was growing and we were still hitting race conditions.
+                </aside>
+            </section>
+
+            <!-- ScriptInfo Race Condition -->
+            <section>
+                <h2>Race Condition Example: ScriptInfo</h2>
+                <img src="scriptinfo-race-condition.png" alt="ScriptInfo Race Condition Diagram" style="max-height: 600px;">
+                <aside class="notes">
+                    This diagram shows a specific race condition that would occur with the old mutable ScriptInfo objects. The ScriptInfo stores file content and a LineMap for position conversions. When an LSP request comes in, we convert line/char to position, run the language service operation, then convert the result back. But if a file change happens concurrently, the LineMap changes mid-operation, causing incorrect position mappings.
+                </aside>
+            </section>
+
+            <!-- Solution: Immutable Snapshots -->
+            <section class="compact-list">
+                <h2>The solution: Immutable snapshots</h2>
+                <div class="fragment">
+                    <p>We solve this by creating <strong>immutable snapshots</strong> that contain all info needed to serve a request.</p>
+                </div>
+                <div class="fragment">
+                    <p>📦 <strong>Programs were already immutable</strong> - this gets us pretty far!</p>
+                </div>
+                <div class="fragment">
+                    <p>But we needed to make these things immutable too:</p>
+                    <ul>
+                        <li class="fragment">📄 <strong>File state</strong> (both open and closed)</li>
+                        <li class="fragment">🗂️ <strong>Projects</strong> (which ones are loaded and what do they contain)</li>
+                        <li class="fragment">⚙️ <strong>ParsedCommandLine</strong> (loaded state)</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    The key insight was that TypeScript Programs were already immutable, which gave us a good foundation. But we needed to extend this immutability to the surrounding infrastructure - file states, project configurations, and command line parsing results.
+                </aside>
+            </section>
+
+            <!-- Side Effects Must Be Eliminated -->
+            <section class="compact-list">
+                <h2>Operating on snapshots: No side effects</h2>
+                <p class="fragment">When operating on a snapshot, we must produce <strong>no side effects</strong>:</p>
+                
+                <div class="two-column">
+                    <div class="fragment">
+                        <h3>❌ Forbidden</h3>
+                        <ul>
+                            <li>📁 <strong>File watching</strong></li>
+                            <li>📝 <strong>Logging</strong> (ideally)</li>
+                            <li>🚀 <strong>Project loading</strong></li>
+                            <li>� <strong>ATA</strong> (Automatic Type Acquisition)</li>
+                        </ul>
+                    </div>
+                    <div class="fragment">
+                        <h3>✅ Pure Operations</h3>
+                        <ul>
+                            <li>🔍 Read file contents</li>
+                            <li>🧮 Compute diagnostics</li>
+                            <li>🎯 Find definitions</li>
+                            <li>🔄 Transform positions</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="fragment" style="margin-top: 1.5rem;">
+                    <p><strong>Result:</strong> Concurrent requests can operate safely on the same snapshot! 🎉</p>
+                </div>
+                
+                <aside class="notes">
+                    This is crucial - when we're operating on a snapshot to serve an LSP request, we cannot perform any operations that would modify global state. No file system operations, no logging that could block, no loading new projects. The snapshot contains everything we need, and operations on it must be pure functions.
+                </aside>
+            </section>
+
+            <!-- Example code slide template -->
+            <section>
+                <h2>Code Example Template</h2>
+                <pre><code class="language-go" data-trim data-noescape>
+// This is a template slide for code
+func ExampleFunction() {
+    fmt.Println("Ready for your code!")
+}
+                </code></pre>
+            </section>
+        </div>
+    </div>
+
+    <script src="node_modules/reveal.js/dist/reveal.js"></script>
+    <script src="node_modules/reveal.js/plugin/highlight/highlight.js"></script>
+    <script src="node_modules/reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="node_modules/reveal.js/plugin/notes/notes.js"></script>
+    
+    <script>
+        Reveal.initialize({
+            hash: true,
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            backgroundTransition: 'fade',
+            
+            plugins: [
+                RevealHighlight,
+                RevealMarkdown,
+                RevealNotes
+            ],
+            
+            highlight: {
+                highlightOnLoad: true,
+                escapeHTML: false
+            }
+        });
+    </script>
+</body>
+</html>

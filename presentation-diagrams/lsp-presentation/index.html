@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSP Server Architecture</title>
+    
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/reveal.css">
+    <link rel="stylesheet" href="node_modules/reveal.js/dist/theme/black.css" id="theme">
+    <link rel="stylesheet" href="node_modules/reveal.js/plugin/highlight/monokai.css">
+    <link rel="stylesheet" href="custom.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Title slide -->
+            <section>
+                <h1>LSP Server Architecture</h1>
+                <h3>TypeScript-Go Implementation</h3>
+                <p>
+                    <small>Understanding the Language Server Protocol</small>
+                </p>
+            </section>
+
+            <!-- Problem Overview -->
+            <section>
+                <h2>The problem we're solving</h2>
+                <ul>
+                    <li class="fragment">Old code relied on <strong>mutable data structures</strong></li>
+                    <li class="fragment">Even with mutexes, we had <strong>data races</strong></li>
+                    <li class="fragment">Code was becoming <strong>unmanageable</strong></li>
+                    <li class="fragment">Need for a <strong>snapshot-based architecture</strong></li>
+                </ul>
+                <aside class="notes">
+                    The original TypeScript language server had fundamental issues with concurrent access to mutable data structures. Even though we used mutexes, the complexity was growing and we were still hitting race conditions.
+                </aside>
+            </section>
+
+            <!-- ScriptInfo Race Condition -->
+            <section>
+                <h2>Race condition example: ScriptInfo</h2>
+                <img src="scriptinfo-race-condition.png" alt="ScriptInfo Race Condition Diagram" style="max-height: 600px;">
+                <aside class="notes">
+                    This diagram shows a specific race condition that would occur with the old mutable ScriptInfo objects. The ScriptInfo stores file content and a LineMap for position conversions. When an LSP request comes in, we convert line/char to position, run the language service operation, then convert the result back. But if a file change happens concurrently, the LineMap changes mid-operation, causing incorrect position mappings.
+                </aside>
+            </section>
+
+            <!-- Solution: Immutable Snapshots -->
+            <section class="compact-list">
+                <h2>The solution: Immutable snapshots</h2>
+                <div class="fragment">
+                    <p>We solve this by creating <strong>immutable snapshots</strong> that contain all info needed to serve a request.</p>
+                </div>
+                <div class="fragment">
+                    <p>📦 <strong>Programs were already immutable</strong> - this gets us pretty far!</p>
+                </div>
+                <div class="fragment">
+                    <p>But we needed to make these things immutable too:</p>
+                    <ul>
+                        <li class="fragment">📄 <strong>File state</strong> (both open and closed)</li>
+                        <li class="fragment">🗂️ <strong>Projects</strong> (which ones are loaded and what do they contain)</li>
+                        <li class="fragment">⚙️ <strong>ParsedCommandLine</strong> (loaded state)</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    The key insight was that TypeScript Programs were already immutable, which gave us a good foundation. But we needed to extend this immutability to the surrounding infrastructure - file states, project configurations, and command line parsing results.
+                </aside>
+            </section>
+
+            <!-- Side Effects Must Be Eliminated -->
+            <section class="compact-list">
+                <h2>Operating on snapshots: No side effects</h2>
+                <p class="fragment">When operating on a snapshot, we must produce <strong>no side effects</strong>:</p>
+                
+                <div class="two-column">
+                    <div class="fragment">
+                        <h3>❌ Forbidden</h3>
+                        <ul>
+                            <li>📁 <strong>File watching</strong></li>
+                            <li>📝 <strong>Logging</strong> (ideally)</li>
+                            <li>🚀 <strong>Project loading</strong></li>
+                            <li>📦 <strong>ATA</strong> (Automatic Type Acquisition)</li>
+                        </ul>
+                    </div>
+                    <div class="fragment">
+                        <h3>✅ Pure operations</h3>
+                        <ul>
+                            <li>🧮 Use language service</li>
+                            <li>📚 Populate internal caches</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="fragment" style="margin-top: 1.5rem;">
+                    <p><strong>Result:</strong> Concurrent requests can operate safely on the same snapshot! 🎉</p>
+                </div>
+                
+                <aside class="notes">
+                    This is crucial - when we're operating on a snapshot to serve an LSP request, we cannot perform any operations that would modify global state. No file system operations, no logging that could block, no loading new projects. The snapshot contains everything we need, and operations on it must be pure functions.
+                </aside>
+            </section>
+
+
+            <!-- LSP Server Hierarchy -->
+            <section>
+                <h2>LSP server hierarchy</h2>
+                <img src="lsp-hierarchy.png" alt="LSP Server Hierarchy Diagram" style="max-height: 650px;">
+                <aside class="notes">
+                    This diagram shows the complete hierarchy of the LSP server architecture. At the top is the Session which manages ref-counted caches, pending changes, file system access, and open file state. The Current Snapshot contains immutable copies of the cached file system, open file state, project collection, and config file registry. Each project has its own file watcher registrations and contains the TypeScript Program, Language Service, and CheckerPool. The ConfigFileRegistry manages parsed command line configurations and their associated file watchers.
+                </aside>
+            </section>
+
+            <!-- Snapshot Creation Process -->
+            <section>
+                <h2>Cloning a snapshot</h2>
+                <img src="snapshot-creation.png" alt="Snapshot Creation Process Diagram" style="max-height: 600px;">
+                <aside class="notes">
+                    This diagram shows the process of creating a new snapshot from pending changes. First, the Session applies its pending changes to the overlay state to create a file change summary. This summary is then combined with the current snapshot, ref-counted caches, and a snapshot of the open file state through the cloning process to produce a new immutable snapshot. This process ensures that all changes are properly captured while maintaining immutability.
+                </aside>
+            </section>
+
+            <!-- Dirty Map Introduction -->
+            <section>
+                <h2>The dirty.Map pattern</h2>
+                <p class="fragment">How do we efficiently track changes to immutable data?</p>
+                <div class="fragment">
+                    <p>📝 <strong>dirty.Map</strong> - A pattern for layering changes on top of immutable base data</p>
+                </div>
+                <ul>
+                    <li class="fragment">🏗️ <strong>Base Map:</strong> Immutable foundation data</li>
+                    <li class="fragment">📋 <strong>Dirty Entries:</strong> Pending changes/overrides</li>
+                    <li class="fragment">🔄 <strong>Read-through:</strong> Check dirty first, then base</li>
+                    <li class="fragment">✨ <strong>Finalization:</strong> Creates new immutable map with changes applied</li>
+                </ul>
+                <aside class="notes">
+                    The dirty.Map pattern is fundamental to our snapshot system. It allows us to efficiently track changes without modifying the original immutable data. When we need to make a change, we clone the entry to the dirty layer. Reads check the dirty layer first, falling back to the base map. When we finalize, we create a completely new immutable map with all changes applied.
+                </aside>
+            </section>
+
+            <!-- Dirty Map Clean State -->
+            <section>
+                <h2>dirty.Map - Clean state</h2>
+                <img src="dirty-map-clean.png" alt="Dirty Map Clean State Diagram" style="max-height: 600px;">
+                <aside class="notes">
+                    This shows a dirty.Map in its clean state - no pending changes. All data comes from the immutable base map on the left. The dirty entries column on the right is empty because no modifications have been made yet. Read operations access the base map directly since there are no overrides to consider.
+                </aside>
+            </section>
+
+            <!-- Dirty Map With Changes -->
+            <section>
+                <h2>dirty.Map - With pending changes</h2>
+                <img src="dirty-map-changes.png" alt="Dirty Map With Changes Diagram" style="max-height: 600px;">
+                <aside class="notes">
+                    Here we see what happens when a change is made. The original entry for key2 is cloned to the dirty entries column with the new value. The original entry in the base map becomes dimmed since it's now overridden. Read operations for key2 now come from the dirty entry instead of the base map, while unmodified entries like key1, key3, and key4 still read from the base map directly.
+                </aside>
+            </section>
+
+            <!-- Dirty Map Finalization -->
+            <section>
+                <h2>dirty.Map - Finalization process</h2>
+                <img src="dirty-map-finalization.png" alt="Dirty Map Finalization Diagram" style="max-height: 650px;">
+                <aside class="notes">
+                    The finalization process shows how we create a new immutable map from the dirty state. The top half shows the current state with base map and dirty entries. During finalization, we create a completely new immutable map where dirty entries override their corresponding base entries, and unchanged entries are carried forward. The result is a new immutable foundation that can serve as the base for future changes.
+                </aside>
+            </section>
+
+            <!-- Real Code Example -->
+            <section>
+                <h2>dirty.MapEntry Change()</h2>
+                <pre><code class="language-go" data-trim data-noescape>
+entry.Change(func(file *diskFile) {
+    file.content = content
+    file.hash = sha256.Sum256([]byte(content))
+    file.needsReload = false
+})
+                </code></pre>
+                
+                <pre><code class="language-go" data-trim data-noescape data-line-numbers="6">
+func (e *MapEntry[K, V]) Change(apply func(V)) {
+	if e.delete {
+		panic("tried to change a deleted entry")
+	}
+	if !e.dirty {
+		e.value = e.value.Clone()
+		e.dirty = true
+		e.m.dirty[e.key] = e
+	}
+	apply(e.value)
+}
+                </code></pre>
+            </section>
+
+
+            <!-- Builder Pattern and Snapshot Construction -->
+            <section>
+                <h2>Builder Pattern: Snapshot Construction</h2>
+                <img src="builder-lifecycle.png" alt="Builder Lifecycle and Dirty Maps" style="max-height: 700px;">
+                <aside class="notes">
+                    When we clone a snapshot, we create three specialized builders that use dirty maps to track changes. Each builder manages a different aspect: snapshotFSBuilder for filesystem changes, projectCollectionBuilder for project updates, and configFileRegistryBuilder for config management with dual dirty maps. The three-phase lifecycle shows initialization, applying changes, and finalization. The key insight is that dirty maps only store what changed - the original immutable data is referenced, not copied. This enables efficient copy-on-write semantics across the entire snapshot system.
+                </aside>
+            </section>
+
+            <!-- LSP Request Flow -->
+            <section>
+                <h2>LSP request processing flow</h2>
+                <img src="lsp-request-flow.png" alt="LSP Request Flow Diagram" style="max-height: 700px;">
+                <aside class="notes">
+                    This diagram shows the complete flow when an LSP request comes in. The process starts with GetLanguageService, which calls flushChanges to check for pending file or ATA changes. If changes exist, UpdateSnapshot is called with mutex locking. The snapshot is cloned, changes are applied, and ref counts are updated. If no changes exist, the current snapshot is used with a read lock. The system then checks if the project is loaded and up-to-date - if not, another snapshot update may be triggered. Finally, background tasks handle logging, file watching, and ATA updates.
+                </aside>
+            </section>
+
+
+        </div>
+    </div>
+
+    <script src="node_modules/reveal.js/dist/reveal.js"></script>
+    <script src="node_modules/reveal.js/plugin/highlight/highlight.js"></script>
+    <script src="node_modules/reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="node_modules/reveal.js/plugin/notes/notes.js"></script>
+    
+    <script>
+        Reveal.initialize({
+            hash: true,
+            transition: 'slide',
+            transitionSpeed: 'fast',
+            backgroundTransition: 'fade',
+            
+            plugins: [
+                RevealHighlight,
+                RevealMarkdown,
+                RevealNotes
+            ],
+            
+            highlight: {
+                highlightOnLoad: true,
+                escapeHTML: false
+            }
+        });
+    </script>
+</body>
+</html>

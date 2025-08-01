@@ -1,0 +1,143 @@
+/* Custom styles for LSP presentation */
+
+:root {
+    --primary-color: #007acc;
+    --secondary-color: #00d4aa;
+    --accent-color: #f39c12;
+    --text-light: #ecf0f1;
+    --bg-dark: #2c3e50;
+}
+
+.slides {
+  font-size: 28px; /* Base font size for readability */
+}
+
+.reveal {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Title slide styling */
+.reveal h1 {
+    color: var(--primary-color);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    font-size: 2.5em;
+    font-weight: 600;
+    text-transform: none;
+}
+
+.reveal h2 {
+    color: var(--secondary-color);
+    margin-bottom: 20px;
+    font-size: 1.8em;
+    font-weight: 500;
+    text-transform: none;
+}
+
+.reveal h3 {
+    color: var(--accent-color);
+    font-size: 1.4em;
+    font-weight: 500;
+    text-transform: none;
+}
+
+/* Code styling */
+.reveal pre {
+    width: 100%;
+    margin: 20px auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.reveal code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+/* Fragment animations */
+.reveal .fragment.highlight-current-blue {
+    opacity: 1;
+    visibility: inherit;
+}
+
+.reveal .fragment.highlight-current-blue.current-fragment {
+    background: var(--primary-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Custom slide layouts */
+.reveal .two-column {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+}
+
+.reveal .two-column > div {
+    flex: 1;
+}
+
+/* Diagrams and images */
+.reveal img {
+    border: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    border-radius: 8px;
+    max-height: 500px;
+}
+
+/* Lists */
+.reveal ul {
+    margin: 15px 0;
+}
+
+.reveal li {
+    margin: 8px 0;
+    font-size: 0.9em;
+}
+
+/* Compact list styling for content-heavy slides */
+.reveal .compact-list ul {
+    margin: 10px 0;
+}
+
+.reveal .compact-list li {
+    margin: 5px 0;
+    font-size: 0.85em;
+}
+
+/* Slide content spacing */
+.reveal .slides section {
+    padding: 20px;
+}
+
+.reveal p {
+    margin: 15px 0;
+}
+
+/* Speaker notes styling */
+.speaker-notes {
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+/* Progress bar */
+.reveal .progress {
+    color: var(--primary-color);
+}
+
+/* Navigation controls */
+.reveal .controls {
+    bottom: 40px;
+    right: 40px;
+}
+
+.reveal .controls button {
+    color: var(--secondary-color);
+}
+
+.reveal .controls button:hover {
+    color: var(--accent-color);
+}

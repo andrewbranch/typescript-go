@@ -1,0 +1,25 @@
+{
+    "name": "lsp-presentation",
+    "version": "1.0.0",
+    "description": "LSP Server Architecture Presentation",
+    "main": "index.html",
+    "scripts": {
+        "serve": "npx serve .",
+        "dev": "npx serve . --listen 3000",
+        "build": "echo 'Static presentation - no build needed'"
+    },
+    "keywords": [
+        "presentation",
+        "lsp",
+        "typescript",
+        "go"
+    ],
+    "author": "Andrew Branch",
+    "license": "MIT",
+    "type": "commonjs",
+    "dependencies": {
+        "highlight.js": "^11.11.1",
+        "reveal.js": "^5.2.1",
+        "serve": "^14.2.4"
+    }
+}

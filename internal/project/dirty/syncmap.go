@@ -203,6 +203,18 @@ func NewSyncMap[K comparable, V Cloneable[V]](base map[K]V, finalizeValue func(d
 	}
 }
 
+func (m *SyncMap[K, V]) IsDirty() bool {
+	isDirty := false
+	m.dirty.Range(func(key K, entry *SyncMapEntry[K, V]) bool {
+		if entry.dirty || entry.delete {
+			isDirty = true
+			return false
+		}
+		return true
+	})
+	return isDirty
+}
+
 func (m *SyncMap[K, V]) Load(key K) (*SyncMapEntry[K, V], bool) {
 	if entry, ok := m.dirty.Load(key); ok {
 		if entry.delete {

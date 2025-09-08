@@ -50,6 +50,10 @@ func NewMap[K comparable, V Cloneable[V]](base map[K]V) *Map[K, V] {
 	}
 }
 
+func (m *Map[K, V]) IsDirty() bool {
+	return len(m.dirty) != 0
+}
+
 func (m *Map[K, V]) Get(key K) (*MapEntry[K, V], bool) {
 	if entry, ok := m.dirty[key]; ok {
 		if entry.delete {

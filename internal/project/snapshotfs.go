@@ -78,6 +78,10 @@ func (s *snapshotFSBuilder) Finalize() (*snapshotFS, bool) {
 	}, changed
 }
 
+func (s *snapshotFSBuilder) HasChanges() bool {
+	return s.diskFiles.IsDirty()
+}
+
 func (s *snapshotFSBuilder) GetFile(fileName string) FileHandle {
 	path := s.toPath(fileName)
 	return s.GetFileByPath(fileName, path)

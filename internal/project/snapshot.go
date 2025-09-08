@@ -195,12 +195,10 @@ func (s *Snapshot) Clone(ctx context.Context, change SnapshotChange, overlays ma
 
 	projectCollection, configFileRegistry := projectCollectionBuilder.Finalize(logger)
 
-	// Clean cached disk files not touched by any open project. It's not important that we do this on
-	// file open specifically, but we don't need to do it on every snapshot clone.
-	if len(change.fileChanges.Opened) != 0 {
+	if fs.HasChanges() {
 		var changedFiles bool
 		for _, project := range projectCollection.Projects() {
-			if project.ProgramLastUpdate == newSnapshotID && project.ProgramUpdateKind != ProgramUpdateKindCloned {
+			if project.ProgramLastUpdate == newSnapshotID && project.ProgramUpdateKind == ProgramUpdateKindNewFiles {
 				changedFiles = true
 				break
 			}

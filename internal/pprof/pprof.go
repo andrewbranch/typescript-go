@@ -5,8 +5,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
+	"sync/atomic"
+
+	"github.com/microsoft/typescript-go/internal/core"
 )
+
+var profileDir string
+var heapProfileCounter int64
 
 type profileSession struct {
 	cpuFilePath string
@@ -17,7 +24,8 @@ type profileSession struct {
 }
 
 // BeginProfiling starts CPU and memory profiling, writing the profiles to the specified directory.
-func BeginProfiling(profileDir string, logWriter io.Writer) *profileSession {
+func BeginProfiling(dir string, logWriter io.Writer) *profileSession {
+	profileDir = dir
 	if err := os.MkdirAll(profileDir, 0o755); err != nil {
 		panic(err)
 	}
@@ -60,4 +68,38 @@ func (p *profileSession) Stop() {
 
 	fmt.Fprintf(p.logWriter, "CPU profile: %v\n", p.cpuFilePath)
 	fmt.Fprintf(p.logWriter, "Memory profile: %v\n", p.memFilePath)
+}
+
+func WriteHeapProfile(runGC bool) (string, error) {
+	if profileDir == "" {
+		profileDir = filepath.Join(core.Must(os.Getwd()), "pprof")
+	}
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		return "", err
+	}
+
+	if runGC {
+		runtime.GC()
+		runtime.GC()
+	}
+
+	// Generate unique filename using PID and counter
+	pid := os.Getpid()
+	counter := atomic.AddInt64(&heapProfileCounter, 1)
+
+	filename := fmt.Sprintf("%d-%d-heapprofile.pb.gz", pid, counter)
+	filePath := filepath.Join(profileDir, filename)
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	err = pprof.Lookup("heap").WriteTo(file, 0)
+	if err != nil {
+		return "", err
+	}
+
+	return filePath, nil
 }

@@ -732,7 +732,8 @@ func registerLanguageServiceWithAutoImportsRequestHandler[Req lsproto.HasTextDoc
 		if req.Params != nil {
 			params = req.Params.(Req)
 		}
-		languageService, err := s.session.GetLanguageService(ctx, params.TextDocumentURI())
+		languageService, snapshot, release, err := s.session.GetLanguageServiceWithSnapshot(ctx, params.TextDocumentURI())
+		defer release()
 		if err != nil {
 			return nil, err
 		}
@@ -740,7 +741,7 @@ func registerLanguageServiceWithAutoImportsRequestHandler[Req lsproto.HasTextDoc
 			defer s.recover(ctx, req)
 			resp, lsErr := fn(s, ctx, languageService, params)
 			if errors.Is(lsErr, ls.ErrNeedsAutoImports) {
-				languageService, lsErr = s.session.GetLanguageServiceWithAutoImports(ctx, params.TextDocumentURI())
+				languageService, lsErr = s.session.GetLanguageServiceWithAutoImports(ctx, snapshot, params.TextDocumentURI())
 				if lsErr != nil {
 					return lsErr
 				}

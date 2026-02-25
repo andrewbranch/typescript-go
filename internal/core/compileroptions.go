@@ -186,6 +186,63 @@ func (options *CompilerOptions) Clone() *CompilerOptions {
 	return target
 }
 
+// GetResolvedOptions returns a clone of CompilerOptions with all computed option
+// getters evaluated into their respective fields. Use DiffCompilerOptions to find
+// which fields differ from the original configured options.
+func (options *CompilerOptions) GetResolvedOptions() *CompilerOptions {
+	resolved := options.Clone()
+
+	resolved.Target = options.GetEmitScriptTarget()
+	resolved.Module = options.GetEmitModuleKind()
+	resolved.ModuleResolution = options.GetModuleResolutionKind()
+	resolved.ModuleDetection = options.GetEmitModuleDetectionKind()
+
+	resolved.AllowJs = tristateFromBool(options.GetAllowJS())
+	resolved.ResolveJsonModule = tristateFromBool(options.GetResolveJsonModule())
+	resolved.IsolatedModules = tristateFromBool(options.GetIsolatedModules())
+	resolved.PreserveConstEnums = tristateFromBool(options.ShouldPreserveConstEnums())
+	resolved.UseDefineForClassFields = tristateFromBool(options.GetEmitStandardClassFields())
+	resolved.Declaration = tristateFromBool(options.GetEmitDeclarations())
+	resolved.DeclarationMap = tristateFromBool(options.GetAreDeclarationMapsEnabled())
+
+	return resolved
+}
+
+func tristateFromBool(b bool) Tristate {
+	if b {
+		return TSTrue
+	}
+	return TSFalse
+}
+
+// DiffCompilerOptions returns a new CompilerOptions containing only the fields
+// that differ between base and resolved. Fields in resolved that match base are
+// left at their zero value (and thus omitted from JSON via omitzero).
+// The second return value is true if any field differs.
+func DiffCompilerOptions(base, resolved *CompilerOptions) (*CompilerOptions, bool) {
+	diff := &CompilerOptions{}
+	hasDiff := false
+
+	baseVal := reflect.ValueOf(base).Elem()
+	resolvedVal := reflect.ValueOf(resolved).Elem()
+	diffVal := reflect.ValueOf(diff).Elem()
+
+	for i := range optionsType.NumField() {
+		field := optionsType.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		bv := baseVal.Field(i)
+		rv := resolvedVal.Field(i)
+		if !reflect.DeepEqual(bv.Interface(), rv.Interface()) {
+			diffVal.Field(i).Set(rv)
+			hasDiff = true
+		}
+	}
+
+	return diff, hasDiff
+}
+
 func (options *CompilerOptions) GetEmitScriptTarget() ScriptTarget {
 	if options.Target != ScriptTargetNone {
 		return options.Target

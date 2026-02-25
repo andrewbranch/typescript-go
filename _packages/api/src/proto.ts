@@ -2,6 +2,7 @@ import {
     documentURIToFileName,
     fileNameToDocumentURI,
 } from "./path.ts";
+import type { CompilerOptions, ResolvedCompilerOptions } from "./compilerOptions.ts";
 
 /**
  * A document identifier that can be either a file name (path string) or a document URI object.
@@ -117,7 +118,9 @@ export interface UpdateSnapshotResponse {
 export interface ProjectResponse {
     id: string;
     configFileName: string;
-    compilerOptions: Record<string, unknown>;
+    compilerOptions: CompilerOptions;
+    /** Resolved options that differ from compilerOptions after applying defaults and computed relationships */
+    resolvedCompilerOptions?: ResolvedCompilerOptions;
     rootFiles: string[];
 }
 

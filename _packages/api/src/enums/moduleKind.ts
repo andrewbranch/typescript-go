@@ -1,0 +1,25 @@
+//
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!! THIS FILE IS AUTO-GENERATED — DO NOT EDIT !!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//
+// Source: internal/core/compileroptions.go
+// Regenerate: npx hereby generate:enums
+//
+export var ModuleKind: any;
+(function (ModuleKind) {
+    ModuleKind[ModuleKind["None"] = 0] = "None";
+    ModuleKind[ModuleKind["CommonJS"] = 1] = "CommonJS";
+    ModuleKind[ModuleKind["AMD"] = 2] = "AMD";
+    ModuleKind[ModuleKind["UMD"] = 3] = "UMD";
+    ModuleKind[ModuleKind["System"] = 4] = "System";
+    ModuleKind[ModuleKind["ES2015"] = 5] = "ES2015";
+    ModuleKind[ModuleKind["ES2020"] = 6] = "ES2020";
+    ModuleKind[ModuleKind["ES2022"] = 7] = "ES2022";
+    ModuleKind[ModuleKind["ESNext"] = 99] = "ESNext";
+    ModuleKind[ModuleKind["Node16"] = 100] = "Node16";
+    ModuleKind[ModuleKind["Node18"] = 101] = "Node18";
+    ModuleKind[ModuleKind["Node20"] = 102] = "Node20";
+    ModuleKind[ModuleKind["NodeNext"] = 199] = "NodeNext";
+    ModuleKind[ModuleKind["Preserve"] = 200] = "Preserve";
+})(ModuleKind || (ModuleKind = {}));

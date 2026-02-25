@@ -49,6 +49,7 @@ import type {
     UpdateSnapshotResponse,
 } from "../proto.ts";
 import { resolveFileName } from "../proto.ts";
+import type { CompilerOptions } from "../compilerOptions.ts";
 import { SourceFileCache } from "../sourceFileCache.ts";
 import {
     Client,
@@ -252,7 +253,7 @@ export class Snapshot {
 export class Project {
     readonly id: string;
     readonly configFileName: string;
-    readonly compilerOptions: Record<string, unknown>;
+    readonly compilerOptions: CompilerOptions;
     readonly rootFiles: readonly string[];
 
     readonly program: Program;
@@ -277,6 +278,7 @@ export class Project {
             client,
             sourceFileCache,
             toPath,
+            data.compilerOptions,
         );
         this.checker = new Checker(
             snapshotId,
@@ -295,6 +297,7 @@ export class Program {
     private sourceFileCache: SourceFileCache;
     private toPath: (fileName: string) => Path;
     private decoder = new TextDecoder();
+    private _compilerOptions: CompilerOptions;
 
     constructor(
         snapshotId: string,
@@ -302,12 +305,18 @@ export class Program {
         client: Client,
         sourceFileCache: SourceFileCache,
         toPath: (fileName: string) => Path,
+        compilerOptions: CompilerOptions,
     ) {
         this.snapshotId = snapshotId;
         this.projectId = projectId;
         this.client = client;
         this.sourceFileCache = sourceFileCache;
         this.toPath = toPath;
+        this._compilerOptions = compilerOptions;
+    }
+
+    getCompilerOptions(): CompilerOptions {
+        return this._compilerOptions;
     }
 
     async getSourceFile(file: DocumentIdentifier): Promise<SourceFile | undefined> {

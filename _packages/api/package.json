@@ -32,6 +32,10 @@
         "./proto": {
             "@typescript/source": "./src/proto.ts",
             "default": "./dist/proto.js"
+        },
+        "./compilerOptions": {
+            "@typescript/source": "./src/compilerOptions.ts",
+            "default": "./dist/compilerOptions.js"
         }
     },
     "scripts": {

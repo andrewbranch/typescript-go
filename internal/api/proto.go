@@ -365,18 +365,27 @@ type GetDefaultProjectForFileParams struct {
 }
 
 type ProjectResponse struct {
-	Id              Handle[project.Project] `json:"id"`
-	ConfigFileName  string                  `json:"configFileName"`
-	RootFiles       []string                `json:"rootFiles"`
-	CompilerOptions *core.CompilerOptions   `json:"compilerOptions"`
+	Id                      Handle[project.Project] `json:"id"`
+	ConfigFileName          string                  `json:"configFileName"`
+	RootFiles               []string                `json:"rootFiles"`
+	CompilerOptions         *core.CompilerOptions   `json:"compilerOptions"`
+	ResolvedCompilerOptions *core.CompilerOptions   `json:"resolvedCompilerOptions,omitempty"`
 }
 
 func NewProjectResponse(p *project.Project) *ProjectResponse {
+	opts := p.CommandLine.CompilerOptions()
+	resolved := opts.GetResolvedOptions()
+	diff, hasDiff := core.DiffCompilerOptions(opts, resolved)
+	var resolvedOpts *core.CompilerOptions
+	if hasDiff {
+		resolvedOpts = diff
+	}
 	return &ProjectResponse{
-		Id:              ProjectHandle(p),
-		ConfigFileName:  p.Name(),
-		RootFiles:       p.CommandLine.FileNames(),
-		CompilerOptions: p.CommandLine.CompilerOptions(),
+		Id:                      ProjectHandle(p),
+		ConfigFileName:          p.Name(),
+		RootFiles:               p.CommandLine.FileNames(),
+		CompilerOptions:         opts,
+		ResolvedCompilerOptions: resolvedOpts,
 	}
 }
 

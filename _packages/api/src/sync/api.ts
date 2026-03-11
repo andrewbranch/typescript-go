@@ -19,7 +19,6 @@ import type {
     Node,
     Path,
     SourceFile,
-    SyntaxKind,
     TypeNode,
 } from "@typescript/ast";
 import {
@@ -28,7 +27,6 @@ import {
 } from "../node/encoder.ts";
 import {
     decodeNode,
-    findDescendant,
     getNodeId,
     parseNodeHandle,
     readParseOptionsKey,
@@ -194,7 +192,7 @@ export class API<FromLSP extends boolean = false> {
 }
 
 export class Snapshot {
-    readonly id: string;
+    readonly id: number;
     private projectMap: Map<Path, Project>;
     private toPath: (fileName: string) => Path;
     private client: Client;
@@ -257,7 +255,7 @@ export class Snapshot {
         this.disposed = true;
         this.objectRegistry.clear();
         this.onDispose();
-        this.client.apiRequest("release", { handle: this.id });
+        this.client.apiRequest("release", { snapshot: this.id });
     }
 
     isDisposed(): boolean {
@@ -283,7 +281,7 @@ export class Project {
 
     constructor(
         data: ProjectResponse,
-        snapshotId: string,
+        snapshotId: number,
         client: Client,
         objectRegistry: SnapshotObjectRegistry,
         sourceFileCache: SourceFileCache,
@@ -311,7 +309,7 @@ export class Project {
 }
 
 export class Program {
-    private snapshotId: string;
+    private snapshotId: number;
     private projectId: string;
     private client: Client;
     private sourceFileCache: SourceFileCache;
@@ -319,7 +317,7 @@ export class Program {
     private decoder = new TextDecoder();
 
     constructor(
-        snapshotId: string,
+        snapshotId: number,
         projectId: string,
         client: Client,
         sourceFileCache: SourceFileCache,
@@ -363,13 +361,13 @@ export class Program {
 }
 
 export class Checker {
-    private snapshotId: string;
+    private snapshotId: number;
     private projectId: string;
     private client: Client;
     private objectRegistry: SnapshotObjectRegistry;
 
     constructor(
-        snapshotId: string,
+        snapshotId: number,
         projectId: string,
         client: Client,
         objectRegistry: SnapshotObjectRegistry,
@@ -727,46 +725,41 @@ export class Emitter {
 }
 
 export class NodeHandle {
-    readonly kind: SyntaxKind;
-    readonly pos: number;
-    readonly end: number;
+    readonly index: number;
     readonly path: Path;
 
     constructor(handle: string) {
         const parsed = parseNodeHandle(handle);
-        this.pos = parsed.pos;
-        this.end = parsed.end;
-        this.kind = parsed.kind;
+        this.index = parsed.index;
         this.path = parsed.path;
     }
 
     /**
      * Resolve this handle to the actual AST node by fetching the source file
-     * from the given project and finding the node at the stored position.
+     * from the given project and looking up the node by index.
      */
     resolve(project: Project): Node | undefined {
         const sourceFile = project.program.getSourceFile(this.path);
         if (!sourceFile) {
             return undefined;
         }
-        // Find the node at the stored position with matching kind and end
-        return findDescendant(sourceFile, this.pos, this.end, this.kind);
+        return (sourceFile as unknown as RemoteSourceFile).getOrCreateNodeAtIndex(this.index);
     }
 }
 
 export class Symbol {
     private client: Client;
-    private snapshotId: string;
+    private snapshotId: number;
     private objectRegistry: SnapshotObjectRegistry;
 
-    readonly id: string;
+    readonly id: number;
     readonly name: string;
     readonly flags: SymbolFlags;
     readonly checkFlags: number;
     readonly declarations: readonly NodeHandle[];
     readonly valueDeclaration: NodeHandle | undefined;
 
-    constructor(data: SymbolResponse, client: Client, snapshotId: string, objectRegistry: SnapshotObjectRegistry) {
+    constructor(data: SymbolResponse, client: Client, snapshotId: number, objectRegistry: SnapshotObjectRegistry) {
         this.client = client;
         this.snapshotId = snapshotId;
         this.objectRegistry = objectRegistry;
@@ -802,29 +795,29 @@ export class Symbol {
 
 class TypeObject implements Type {
     private client: Client;
-    private snapshotId: string;
+    private snapshotId: number;
     private objectRegistry: SnapshotObjectRegistry;
 
-    readonly id: string;
+    readonly id: number;
     readonly flags: TypeFlags;
     readonly objectFlags!: ObjectFlags;
     readonly value!: string | number | boolean;
-    readonly target!: string;
-    readonly typeParameters!: readonly string[];
-    readonly outerTypeParameters!: readonly string[];
-    readonly localTypeParameters!: readonly string[];
+    readonly target!: number;
+    readonly typeParameters!: readonly number[];
+    readonly outerTypeParameters!: readonly number[];
+    readonly localTypeParameters!: readonly number[];
     readonly elementFlags!: readonly ElementFlags[];
     readonly fixedLength!: number;
     readonly readonly!: boolean;
     readonly texts!: readonly string[];
-    readonly objectType!: string;
-    readonly indexType!: string;
-    readonly checkType!: string;
-    readonly extendsType!: string;
-    readonly baseType!: string;
-    readonly substConstraint!: string;
+    readonly objectType!: number;
+    readonly indexType!: number;
+    readonly checkType!: number;
+    readonly extendsType!: number;
+    readonly baseType!: number;
+    readonly substConstraint!: number;
 
-    constructor(data: TypeResponse, client: Client, snapshotId: string, objectRegistry: SnapshotObjectRegistry) {
+    constructor(data: TypeResponse, client: Client, snapshotId: number, objectRegistry: SnapshotObjectRegistry) {
         this.client = client;
         this.snapshotId = snapshotId;
         this.objectRegistry = objectRegistry;
@@ -854,8 +847,8 @@ class TypeObject implements Type {
         return data ? this.objectRegistry.getOrCreateSymbol(data) : undefined;
     }
 
-    private fetchType(handle: string | undefined, method: string): Type {
-        const cached = handle ? this.objectRegistry.getType(handle) : undefined;
+    private fetchType(handle: number | undefined, method: string): Type {
+        const cached = handle !== undefined ? this.objectRegistry.getType(handle) : undefined;
         if (cached) return cached as Type;
         const data = this.client.apiRequest<TypeResponse | null>(method, { snapshot: this.snapshotId, type: this.id });
         if (!data) throw new Error(`${method} returned null for type ${this.id}`);
@@ -914,7 +907,7 @@ class TypeObject implements Type {
 
 export class Signature {
     private flags: number;
-    readonly id: string;
+    readonly id: number;
     readonly declaration?: NodeHandle | undefined;
     readonly typeParameters?: readonly Type[] | undefined;
     readonly parameters: readonly Symbol[];

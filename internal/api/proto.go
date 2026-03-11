@@ -365,7 +365,7 @@ type ParseConfigFileParams struct {
 
 // ReleaseParams are the parameters for the release method.
 type ReleaseParams struct {
-	Snapshot SnapshotID `json:"handle"`
+	Snapshot SnapshotID `json:"snapshot"`
 }
 
 type ConfigFileResponse struct {

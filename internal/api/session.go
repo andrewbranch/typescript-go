@@ -41,6 +41,10 @@ type snapshotData struct {
 	signatureRegistry   map[SignatureID]*checker.Signature
 	signatureNextID     uint64
 	signatureRegistryMu sync.RWMutex
+
+	// nodeCache caches resolved node handles to avoid repeated AST tree walks.
+	nodeCache   map[NodeHandle]*ast.Node
+	nodeCacheMu sync.RWMutex
 }
 
 // getProgram looks up a program from a project handle within this snapshot.
@@ -497,6 +501,7 @@ func (s *Session) handleUpdateSnapshot(ctx context.Context, params *UpdateSnapsh
 			symbolRegistry:    make(map[SymbolID]*ast.Symbol),
 			typeRegistry:      make(map[TypeID]*checker.Type),
 			signatureRegistry: make(map[SignatureID]*checker.Signature),
+			nodeCache:         make(map[NodeHandle]*ast.Node),
 		}
 		s.snapshots[handle] = sd
 	}
@@ -698,7 +703,7 @@ func (s *Session) handleGetSymbolAtLocation(ctx context.Context, params *GetSymb
 	}
 	defer setup.done()
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +729,7 @@ func (s *Session) handleGetSymbolsAtLocations(ctx context.Context, params *GetSy
 
 	results := make([]*SymbolResponse, len(params.Locations))
 	for i, loc := range params.Locations {
-		node, err := s.resolveNodeHandle(setup.program, loc)
+		node, err := setup.sd.resolveNodeHandle(setup.program, loc)
 		if err != nil {
 			return nil, err
 		}
@@ -825,7 +830,7 @@ func (s *Session) handleResolveName(ctx context.Context, params *ResolveNamePara
 	// Resolve location node - either from node handle or from fileName+position
 	var location *ast.Node
 	if params.Location != "" {
-		location, err = s.resolveNodeHandle(setup.program, params.Location)
+		location, err = setup.sd.resolveNodeHandle(setup.program, params.Location)
 		if err != nil {
 			return nil, err
 		}
@@ -982,7 +987,7 @@ func (s *Session) handleGetTypeAtLocation(ctx context.Context, params *GetTypeAt
 	}
 	defer setup.done()
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -1008,7 +1013,7 @@ func (s *Session) handleGetTypeAtLocations(ctx context.Context, params *GetTypeA
 
 	results := make([]*TypeResponse, len(params.Locations))
 	for i, loc := range params.Locations {
-		node, err := s.resolveNodeHandle(setup.program, loc)
+		node, err := setup.sd.resolveNodeHandle(setup.program, loc)
 		if err != nil {
 			return nil, err
 		}
@@ -1194,7 +1199,7 @@ func (s *Session) handleGetContextualType(ctx context.Context, params *GetContex
 	}
 	defer setup.done()
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -1239,7 +1244,7 @@ func (s *Session) handleGetShorthandAssignmentValueSymbol(ctx context.Context, p
 	}
 	defer setup.done()
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -1271,7 +1276,7 @@ func (s *Session) handleGetTypeOfSymbolAtLocation(ctx context.Context, params *G
 		return nil, nil
 	}
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -1302,7 +1307,7 @@ func (s *Session) handleTypeToTypeNode(ctx context.Context, params *TypeToTypeNo
 
 	var enclosingDeclaration *ast.Node
 	if params.Location != "" {
-		enclosingDeclaration, err = s.resolveNodeHandle(setup.program, params.Location)
+		enclosingDeclaration, err = setup.sd.resolveNodeHandle(setup.program, params.Location)
 		if err != nil {
 			return nil, err
 		}
@@ -1341,7 +1346,7 @@ func (s *Session) handleTypeToString(ctx context.Context, params *TypeToTypeNode
 
 	var enclosingDeclaration *ast.Node
 	if params.Location != "" {
-		enclosingDeclaration, err = s.resolveNodeHandle(setup.program, params.Location)
+		enclosingDeclaration, err = setup.sd.resolveNodeHandle(setup.program, params.Location)
 		if err != nil {
 			return nil, err
 		}
@@ -1396,7 +1401,7 @@ func (s *Session) handleIsContextSensitive(ctx context.Context, params *GetConte
 	}
 	defer setup.done()
 
-	node, err := s.resolveNodeHandle(setup.program, params.Location)
+	node, err := setup.sd.resolveNodeHandle(setup.program, params.Location)
 	if err != nil {
 		return false, err
 	}
@@ -1608,7 +1613,15 @@ func (s *Session) handleGetTypeArguments(ctx context.Context, params *CheckerTyp
 	return results, nil
 }
 
-func (s *Session) resolveNodeHandle(program *compiler.Program, handle NodeHandle) (*ast.Node, error) {
+func (sd *snapshotData) resolveNodeHandle(program *compiler.Program, handle NodeHandle) (*ast.Node, error) {
+	// Check the cache first
+	sd.nodeCacheMu.RLock()
+	if node, ok := sd.nodeCache[handle]; ok {
+		sd.nodeCacheMu.RUnlock()
+		return node, nil
+	}
+	sd.nodeCacheMu.RUnlock()
+
 	pos, end, kind, path, err := parseNodeHandle(handle)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrClientError, err)
@@ -1643,10 +1656,15 @@ func (s *Session) resolveNodeHandle(program *compiler.Program, handle NodeHandle
 			return false
 		})
 		if found != nil {
-			return found, nil
+			node = found
 		}
 		// Return the node we found even if it doesn't match exactly
 	}
+
+	// Cache the resolved node
+	sd.nodeCacheMu.Lock()
+	sd.nodeCache[handle] = node
+	sd.nodeCacheMu.Unlock()
 
 	return node, nil
 }

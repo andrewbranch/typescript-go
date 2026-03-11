@@ -87,11 +87,8 @@ func (sd *snapshotData) nodeHandleFrom(node *ast.Node) NodeHandle {
 		sd.nodeTablesByPathMu.Unlock()
 	}
 
-	if idx, ok := table.Indices[node]; ok {
-		return NodeHandle(fmt.Sprintf("%d.%s", idx, path))
-	}
-	// Fallback (should not normally happen)
-	return NodeHandleFrom(node)
+	idx := table.Indices[node]
+	return NodeHandle(fmt.Sprintf("%d.%s", idx, path))
 }
 
 // registerSymbol registers a symbol in this snapshot's registry and returns the response.
@@ -1434,9 +1431,6 @@ func (s *Session) handleGetIntrinsicType(ctx context.Context, params *GetIntrins
 	return setup.sd.registerType(t), nil
 }
 
-// resolveNodeHandle resolves a node handle to an AST node.
-// Node handles encode: pos.end.kind.path
-
 // handleIsContextSensitive returns whether a node is context-sensitive.
 func (s *Session) handleIsContextSensitive(ctx context.Context, params *GetContextualTypeParams) (bool, error) {
 	setup, err := s.setupChecker(ctx, params.Snapshot, params.Project)
@@ -1664,65 +1658,23 @@ func (sd *snapshotData) resolveNodeHandle(program *compiler.Program, handle Node
 		return nil, fmt.Errorf("%w: invalid node handle %q", ErrClientError, handle)
 	}
 
-	// Detect format: new "index.path" has path starting with '/' after first dot;
-	// legacy "pos.end.kind.path" has a digit after the first dot.
-	afterDot := s[dot+1:]
-	if len(afterDot) > 0 && afterDot[0] == '/' {
-		// New format: index.path — O(1) lookup
-		idx, err := strconv.ParseUint(s[:dot], 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid node handle %q: %w", ErrClientError, handle, err)
-		}
-		path := tspath.Path(afterDot)
-
-		sd.nodeTablesByPathMu.RLock()
-		table := sd.nodeTablesByPath[path]
-		sd.nodeTablesByPathMu.RUnlock()
-
-		if table != nil && int(idx) < len(table.Nodes) {
-			node := table.Nodes[idx]
-			if node != nil {
-				return node, nil
-			}
-		}
-		return nil, fmt.Errorf("%w: node handle %q could not be resolved (file may not be loaded)", ErrClientError, handle)
-	}
-
-	// Legacy format: pos.end.kind.path — AST walk fallback
-	pos, end, kind, path, err := parseLegacyNodeHandle(handle)
+	idx, err := strconv.ParseUint(s[:dot], 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrClientError, err)
+		return nil, fmt.Errorf("%w: invalid node handle %q: %w", ErrClientError, handle, err)
 	}
+	path := tspath.Path(s[dot+1:])
 
-	sourceFile := program.GetSourceFileByPath(path)
-	if sourceFile == nil {
-		return nil, fmt.Errorf("%w: source file not found: %s", ErrClientError, path)
-	}
+	sd.nodeTablesByPathMu.RLock()
+	table := sd.nodeTablesByPath[path]
+	sd.nodeTablesByPathMu.RUnlock()
 
-	if kind == ast.KindSourceFile {
-		return sourceFile.AsNode(), nil
-	}
-
-	node := ast.GetNodeAtPosition(sourceFile, pos, true /*includeJSDoc*/)
-	if node == nil {
-		return nil, nil
-	}
-
-	if node.Kind != kind || node.End() != end {
-		var found *ast.Node
-		node.ForEachChild(func(child *ast.Node) bool {
-			if child.Pos() == pos && child.End() == end && child.Kind == kind {
-				found = child
-				return true
-			}
-			return false
-		})
-		if found != nil {
-			node = found
+	if table != nil && int(idx) < len(table.Nodes) {
+		node := table.Nodes[idx]
+		if node != nil {
+			return node, nil
 		}
 	}
-
-	return node, nil
+	return nil, fmt.Errorf("%w: node handle %q could not be resolved (file may not be loaded)", ErrClientError, handle)
 }
 
 // computeSnapshotChanges computes the per-project source file differences between

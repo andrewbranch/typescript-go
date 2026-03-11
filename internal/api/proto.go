@@ -3,8 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/checker"
@@ -45,35 +43,6 @@ func TypeHandle(t *checker.Type) TypeID {
 
 func SignatureHandle(id uint64) SignatureID {
 	return SignatureID(id)
-}
-
-// NodeHandleFrom creates a node handle from a node.
-// Format: pos.end.kind.path
-func NodeHandleFrom(node *ast.Node) NodeHandle {
-	sourceFile := ast.GetSourceFileOfNode(node)
-	return NodeHandle(fmt.Sprintf("%d.%d.%d.%s", node.Pos(), node.End(), node.Kind, sourceFile.Path()))
-}
-
-// parseLegacyNodeHandle parses a node handle in the legacy position-based format.
-// Format: pos.end.kind.path
-func parseLegacyNodeHandle(handle NodeHandle) (pos int, end int, kind ast.Kind, path tspath.Path, err error) {
-	parts := strings.SplitN(string(handle), ".", 4)
-	if len(parts) != 4 {
-		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q", handle)
-	}
-	posInt, err := strconv.ParseInt(parts[0], 10, 32)
-	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
-	}
-	endInt, err := strconv.ParseInt(parts[1], 10, 32)
-	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
-	}
-	kindInt, err := strconv.ParseInt(parts[2], 10, 16)
-	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
-	}
-	return int(posInt), int(endInt), ast.Kind(kindInt), tspath.Path(parts[3]), nil
 }
 
 func parseProjectHandle(handle ProjectID) tspath.Path {
@@ -436,17 +405,9 @@ func NewSymbolResponse(symbol *ast.Symbol) *SymbolResponse {
 		CheckFlags: uint32(symbol.CheckFlags),
 	}
 
-	// Add declarations
+	// Allocate declaration slices; callers fill in the handles.
 	if len(symbol.Declarations) > 0 {
 		resp.Declarations = make([]NodeHandle, len(symbol.Declarations))
-		for i, decl := range symbol.Declarations {
-			resp.Declarations[i] = NodeHandleFrom(decl)
-		}
-	}
-
-	// Add value declaration
-	if symbol.ValueDeclaration != nil {
-		resp.ValueDeclaration = NodeHandleFrom(symbol.ValueDeclaration)
 	}
 
 	return resp

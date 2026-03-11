@@ -23,7 +23,7 @@ func parseSourceFile(code string) *ast.SourceFile {
 func TestDecodeSourceFile_Basic(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("let x = 1;")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -38,7 +38,7 @@ func TestDecodeSourceFile_Basic(t *testing.T) {
 func TestDecodeSourceFile_Statements(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("let a = 1;\nlet b = 2;\nlet c = 3;")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -52,7 +52,7 @@ func TestDecodeSourceFile_Statements(t *testing.T) {
 func TestDecodeSourceFile_VariableDeclaration(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("let x = 1;")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -75,7 +75,7 @@ func TestDecodeSourceFile_VariableDeclaration(t *testing.T) {
 func TestDecodeSourceFile_FunctionDeclaration(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("function add(a: number, b: number): number { return a + b; }")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -97,7 +97,7 @@ func TestDecodeSourceFile_FunctionDeclaration(t *testing.T) {
 func TestDecodeSourceFile_ImportDeclaration(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile(`import { bar } from "bar";`)
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -120,7 +120,7 @@ func TestDecodeSourceFile_ImportDeclaration(t *testing.T) {
 func TestDecodeSourceFile_IfStatement(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("if (true) { } else { }")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -137,7 +137,7 @@ func TestDecodeSourceFile_IfStatement(t *testing.T) {
 func TestDecodeSourceFile_TemplateExpression(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("let x = `hello ${name} world`;")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -160,7 +160,7 @@ func TestDecodeSourceFile_TemplateExpression(t *testing.T) {
 func TestDecodeSourceFile_ExportModifier(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("export function foo() {}")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -176,7 +176,7 @@ func TestDecodeSourceFile_Positions(t *testing.T) {
 	t.Parallel()
 	code := "let x = 1;"
 	sf := parseSourceFile(code)
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -189,7 +189,7 @@ func TestDecodeSourceFile_Positions(t *testing.T) {
 func TestDecodeSourceFile_ClassDeclaration(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("class Foo { bar(): void {} }")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -218,7 +218,7 @@ func TestDecodeNodes_SubtreeRoundTrip(t *testing.T) {
 	visitor.VisitEachChild(sf.AsNode())
 	assert.Assert(t, funcNode != nil)
 
-	buf, err := encoder.EncodeNode(funcNode, sf)
+	buf, _, err := encoder.EncodeNode(funcNode, sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeNodes(buf)
@@ -236,7 +236,7 @@ func TestDecodeNodes_SubtreeRoundTrip(t *testing.T) {
 func TestDecodeSourceFile_BinaryExpression(t *testing.T) {
 	t.Parallel()
 	sf := parseSourceFile("let x = 1 + 2;")
-	buf, err := encoder.EncodeSourceFile(sf)
+	buf, _, err := encoder.EncodeSourceFile(sf)
 	assert.NilError(t, err)
 
 	decoded, err := encoder.DecodeSourceFile(buf)
@@ -262,7 +262,7 @@ func BenchmarkDecodeSourceFile(b *testing.B) {
 		Path:     "/checker.ts",
 	}, code, core.ScriptKindTS)
 
-	buf, err := encoder.EncodeSourceFile(sourceFile)
+	buf, _, err := encoder.EncodeSourceFile(sourceFile)
 	assert.NilError(b, err)
 
 	b.Run("parse", func(b *testing.B) {

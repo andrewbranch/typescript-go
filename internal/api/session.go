@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -42,9 +44,10 @@ type snapshotData struct {
 	signatureNextID     uint64
 	signatureRegistryMu sync.RWMutex
 
-	// nodeCache caches resolved node handles to avoid repeated AST tree walks.
-	nodeCache   map[NodeHandle]*ast.Node
-	nodeCacheMu sync.RWMutex
+	// nodeTablesByPath maps file paths to node index tables built during getSourceFile.
+	// Used for O(1) node handle resolution via index-based handles.
+	nodeTablesByPath   map[tspath.Path]*encoder.NodeIndexTable
+	nodeTablesByPathMu sync.RWMutex
 }
 
 // getProgram looks up a program from a project handle within this snapshot.
@@ -63,12 +66,39 @@ func (sd *snapshotData) getProgram(projectHandle ProjectID) (*compiler.Program, 
 	return program, nil
 }
 
+// nodeHandleFrom creates a node handle using index-based format if the file has been encoded,
+// falling back to the position-based format otherwise.
+func (sd *snapshotData) nodeHandleFrom(node *ast.Node) NodeHandle {
+	sourceFile := ast.GetSourceFileOfNode(node)
+	path := sourceFile.Path()
+
+	sd.nodeTablesByPathMu.RLock()
+	table := sd.nodeTablesByPath[path]
+	sd.nodeTablesByPathMu.RUnlock()
+
+	if table != nil {
+		if idx, ok := table.Indices[node]; ok {
+			return NodeHandle(fmt.Sprintf("%d.%s", idx, path))
+		}
+	}
+	// Fallback for files not yet encoded
+	return NodeHandleFrom(node)
+}
+
 // registerSymbol registers a symbol in this snapshot's registry and returns the response.
 func (sd *snapshotData) registerSymbol(symbol *ast.Symbol) *SymbolResponse {
 	if symbol == nil {
 		return nil
 	}
 	resp := NewSymbolResponse(symbol)
+
+	// Override declarations with index-based handles
+	for i, decl := range symbol.Declarations {
+		resp.Declarations[i] = sd.nodeHandleFrom(decl)
+	}
+	if symbol.ValueDeclaration != nil {
+		resp.ValueDeclaration = sd.nodeHandleFrom(symbol.ValueDeclaration)
+	}
 
 	sd.symbolRegistryMu.Lock()
 	sd.symbolRegistry[resp.Id] = symbol
@@ -161,7 +191,7 @@ func (sd *snapshotData) registerSignature(sig *checker.Signature) *SignatureResp
 	}
 
 	if sig.Declaration() != nil {
-		resp.Declaration = NodeHandleFrom(sig.Declaration())
+		resp.Declaration = sd.nodeHandleFrom(sig.Declaration())
 	}
 
 	if len(sig.TypeParameters()) > 0 {
@@ -501,7 +531,7 @@ func (s *Session) handleUpdateSnapshot(ctx context.Context, params *UpdateSnapsh
 			symbolRegistry:    make(map[SymbolID]*ast.Symbol),
 			typeRegistry:      make(map[TypeID]*checker.Type),
 			signatureRegistry: make(map[SignatureID]*checker.Signature),
-			nodeCache:         make(map[NodeHandle]*ast.Node),
+			nodeTablesByPath:  make(map[tspath.Path]*encoder.NodeIndexTable),
 		}
 		s.snapshots[handle] = sd
 	}
@@ -625,10 +655,15 @@ func (s *Session) handleGetSourceFile(ctx context.Context, params *GetSourceFile
 	}
 
 	// Encode the full source file
-	data, err := encoder.EncodeSourceFile(sourceFile)
+	data, nodeTable, err := encoder.EncodeSourceFile(sourceFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode source file: %w", err)
 	}
+
+	// Store the node table for O(1) handle resolution
+	sd.nodeTablesByPathMu.Lock()
+	sd.nodeTablesByPath[sourceFile.Path()] = nodeTable
+	sd.nodeTablesByPathMu.Unlock()
 
 	// Return raw binary for msgpack protocol, or base64 for JSON
 	if s.useBinaryResponses {
@@ -1318,7 +1353,7 @@ func (s *Session) handleTypeToTypeNode(ctx context.Context, params *TypeToTypeNo
 		return nil, nil
 	}
 
-	data, err := encoder.EncodeNode(typeNode.AsNode(), nil)
+	data, _, err := encoder.EncodeNode(typeNode.AsNode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode type node: %w", err)
 	}
@@ -1614,39 +1649,57 @@ func (s *Session) handleGetTypeArguments(ctx context.Context, params *CheckerTyp
 }
 
 func (sd *snapshotData) resolveNodeHandle(program *compiler.Program, handle NodeHandle) (*ast.Node, error) {
-	// Check the cache first
-	sd.nodeCacheMu.RLock()
-	if node, ok := sd.nodeCache[handle]; ok {
-		sd.nodeCacheMu.RUnlock()
-		return node, nil
+	s := string(handle)
+	dot := strings.IndexByte(s, '.')
+	if dot == -1 || dot+1 >= len(s) {
+		return nil, fmt.Errorf("%w: invalid node handle %q", ErrClientError, handle)
 	}
-	sd.nodeCacheMu.RUnlock()
 
-	pos, end, kind, path, err := parseNodeHandle(handle)
+	// Detect format: new "index.path" has path starting with '/' after first dot;
+	// legacy "pos.end.kind.path" has a digit after the first dot.
+	afterDot := s[dot+1:]
+	if len(afterDot) > 0 && afterDot[0] == '/' {
+		// New format: index.path — O(1) lookup
+		idx, err := strconv.ParseUint(s[:dot], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid node handle %q: %w", ErrClientError, handle, err)
+		}
+		path := tspath.Path(afterDot)
+
+		sd.nodeTablesByPathMu.RLock()
+		table := sd.nodeTablesByPath[path]
+		sd.nodeTablesByPathMu.RUnlock()
+
+		if table != nil && int(idx) < len(table.Nodes) {
+			node := table.Nodes[idx]
+			if node != nil {
+				return node, nil
+			}
+		}
+		return nil, fmt.Errorf("%w: node handle %q could not be resolved (file may not be loaded)", ErrClientError, handle)
+	}
+
+	// Legacy format: pos.end.kind.path — AST walk fallback
+	pos, end, kind, path, err := parseLegacyNodeHandle(handle)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrClientError, err)
 	}
 
-	// Find the source file by path
 	sourceFile := program.GetSourceFileByPath(path)
 	if sourceFile == nil {
 		return nil, fmt.Errorf("%w: source file not found: %s", ErrClientError, path)
 	}
 
-	// If the handle refers to the source file itself, return it directly
 	if kind == ast.KindSourceFile {
 		return sourceFile.AsNode(), nil
 	}
 
-	// Find the node at the position with the expected kind and end
 	node := ast.GetNodeAtPosition(sourceFile, pos, true /*includeJSDoc*/)
 	if node == nil {
 		return nil, nil
 	}
 
-	// Verify the kind and end match
 	if node.Kind != kind || node.End() != end {
-		// Try to find the exact node by walking children
 		var found *ast.Node
 		node.ForEachChild(func(child *ast.Node) bool {
 			if child.Pos() == pos && child.End() == end && child.Kind == kind {
@@ -1658,13 +1711,7 @@ func (sd *snapshotData) resolveNodeHandle(program *compiler.Program, handle Node
 		if found != nil {
 			node = found
 		}
-		// Return the node we found even if it doesn't match exactly
 	}
-
-	// Cache the resolved node
-	sd.nodeCacheMu.Lock()
-	sd.nodeCache[handle] = node
-	sd.nodeCacheMu.Unlock()
 
 	return node, nil
 }

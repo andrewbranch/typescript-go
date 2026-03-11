@@ -54,25 +54,24 @@ func NodeHandleFrom(node *ast.Node) NodeHandle {
 	return NodeHandle(fmt.Sprintf("%d.%d.%d.%s", node.Pos(), node.End(), node.Kind, sourceFile.Path()))
 }
 
-// parseNodeHandle parses a node handle into its components.
+// parseLegacyNodeHandle parses a node handle in the legacy position-based format.
 // Format: pos.end.kind.path
-func parseNodeHandle(handle NodeHandle) (pos int, end int, kind ast.Kind, path tspath.Path, err error) {
+func parseLegacyNodeHandle(handle NodeHandle) (pos int, end int, kind ast.Kind, path tspath.Path, err error) {
 	parts := strings.SplitN(string(handle), ".", 4)
 	if len(parts) != 4 {
-		return 0, 0, 0, "", fmt.Errorf("invalid node handle %q", handle)
+		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q", handle)
 	}
-
 	posInt, err := strconv.ParseInt(parts[0], 10, 32)
 	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid node handle %q: %w", handle, err)
+		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
 	}
 	endInt, err := strconv.ParseInt(parts[1], 10, 32)
 	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid node handle %q: %w", handle, err)
+		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
 	}
 	kindInt, err := strconv.ParseInt(parts[2], 10, 16)
 	if err != nil {
-		return 0, 0, 0, "", fmt.Errorf("invalid node handle %q: %w", handle, err)
+		return 0, 0, 0, "", fmt.Errorf("invalid legacy node handle %q: %w", handle, err)
 	}
 	return int(posInt), int(endInt), ast.Kind(kindInt), tspath.Path(parts[3]), nil
 }

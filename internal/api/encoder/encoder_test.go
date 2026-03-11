@@ -53,6 +53,35 @@ func TestEncodeSourceFileWithUnicodeEscapes(t *testing.T) {
 	})
 }
 
+func TestBuildNodeIndexTableMatchesEncode(t *testing.T) {
+	t.Parallel()
+	sourceFile := parser.ParseSourceFile(ast.SourceFileParseOptions{
+		FileName: "/test.ts",
+		Path:     "/test.ts",
+	}, "import { bar } from \"bar\";\nexport function foo<T, U>(a: string, b: string): any {}\nfoo();", core.ScriptKindTS)
+
+	_, encodeTable, err := encoder.EncodeSourceFile(sourceFile)
+	assert.NilError(t, err)
+
+	buildTable := encoder.BuildNodeIndexTable(sourceFile)
+
+	// Both tables should have the same length
+	assert.Equal(t, len(buildTable.Nodes), len(encodeTable.Nodes), "Nodes slice length mismatch")
+	assert.Equal(t, len(buildTable.Indices), len(encodeTable.Indices), "Indices map length mismatch")
+
+	// Every node should have the same index in both tables
+	for node, encIdx := range encodeTable.Indices {
+		buildIdx, ok := buildTable.Indices[node]
+		assert.Assert(t, ok, "node at encode index %d missing from build table", encIdx)
+		assert.Equal(t, buildIdx, encIdx, "index mismatch for node kind=%s", node.Kind.String())
+	}
+
+	// Every index should map to the same node
+	for i := range encodeTable.Nodes {
+		assert.Equal(t, buildTable.Nodes[i], encodeTable.Nodes[i], "node mismatch at index %d", i)
+	}
+}
+
 func BenchmarkEncodeSourceFile(b *testing.B) {
 	repo.SkipIfNoTypeScriptSubmodule(b)
 	filePath := filepath.Join(repo.TypeScriptSubmodulePath(), "src/compiler/checker.ts")

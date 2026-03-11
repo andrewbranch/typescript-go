@@ -76,12 +76,21 @@ func (sd *snapshotData) nodeHandleFrom(node *ast.Node) NodeHandle {
 	table := sd.nodeTablesByPath[path]
 	sd.nodeTablesByPathMu.RUnlock()
 
-	if table != nil {
-		if idx, ok := table.Indices[node]; ok {
-			return NodeHandle(fmt.Sprintf("%d.%s", idx, path))
+	if table == nil {
+		// Eagerly build node index table for this file.
+		newTable := encoder.BuildNodeIndexTable(sourceFile)
+		sd.nodeTablesByPathMu.Lock()
+		if sd.nodeTablesByPath[path] == nil {
+			sd.nodeTablesByPath[path] = newTable
 		}
+		table = sd.nodeTablesByPath[path]
+		sd.nodeTablesByPathMu.Unlock()
 	}
-	// Fallback for files not yet encoded
+
+	if idx, ok := table.Indices[node]; ok {
+		return NodeHandle(fmt.Sprintf("%d.%s", idx, path))
+	}
+	// Fallback (should not normally happen)
 	return NodeHandleFrom(node)
 }
 

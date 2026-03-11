@@ -293,6 +293,59 @@ type NodeIndexTable struct {
 	Indices map[*ast.Node]uint32 // node → index (for handle creation)
 }
 
+// BuildNodeIndexTable walks the AST in the same order as encodeTree and builds
+// a NodeIndexTable without performing the full binary encoding. This is used to
+// eagerly create index tables for files that need node handles before getSourceFile
+// is called. The indices produced are guaranteed to match those from EncodeSourceFile.
+func BuildNodeIndexTable(sourceFile *ast.SourceFile) *NodeIndexTable {
+	var nodeCount uint32
+	nodeTable := make([]*ast.Node, 1, sourceFile.NodeCount+1) // index 0 = nil sentinel
+	nodeIndices := make(map[*ast.Node]uint32, sourceFile.NodeCount)
+
+	visitor := &ast.NodeVisitor{
+		Hooks: ast.NodeVisitorHooks{
+			VisitNodes: func(nodeList *ast.NodeList, visitor *ast.NodeVisitor) *ast.NodeList {
+				if nodeList == nil || len(nodeList.Nodes) == 0 {
+					return nodeList
+				}
+				nodeCount++
+				nodeTable = append(nodeTable, nil) // NodeLists are not *ast.Node
+				visitor.VisitSlice(nodeList.Nodes)
+				return nodeList
+			},
+			VisitModifiers: func(modifiers *ast.ModifierList, visitor *ast.NodeVisitor) *ast.ModifierList {
+				if modifiers != nil && len(modifiers.Nodes) > 0 {
+					visitor.Hooks.VisitNodes(&modifiers.NodeList, visitor)
+				}
+				return modifiers
+			},
+		},
+	}
+	visitor.Visit = func(node *ast.Node) *ast.Node {
+		nodeCount++
+		nodeTable = append(nodeTable, node)
+		nodeIndices[node] = nodeCount
+		visitor.VisitEachChild(node)
+		for _, jsdoc := range node.JSDoc(sourceFile) {
+			visitor.Visit(jsdoc)
+		}
+		return node
+	}
+
+	rootNode := sourceFile.AsNode()
+	// Index 1 = root node (matches encodeTree)
+	nodeCount++
+	nodeTable = append(nodeTable, rootNode)
+	nodeIndices[rootNode] = nodeCount
+
+	visitor.VisitEachChild(rootNode)
+	for _, jsdoc := range rootNode.JSDoc(sourceFile) {
+		visitor.Visit(jsdoc)
+	}
+
+	return &NodeIndexTable{Nodes: nodeTable, Indices: nodeIndices}
+}
+
 // EncodeSourceFile encodes an entire source file AST into the binary format.
 // Returns the encoded bytes and a NodeIndexTable mapping encoder indices to AST nodes.
 func EncodeSourceFile(sourceFile *ast.SourceFile) ([]byte, *NodeIndexTable, error) {

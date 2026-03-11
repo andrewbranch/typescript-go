@@ -32,19 +32,19 @@ type snapshotData struct {
 	snapshot *project.Snapshot
 	refCount int
 
-	symbolRegistry   map[Handle[ast.Symbol]]*ast.Symbol
+	symbolRegistry   map[SymbolID]*ast.Symbol
 	symbolRegistryMu sync.RWMutex
 
-	typeRegistry   map[Handle[checker.Type]]*checker.Type
+	typeRegistry   map[TypeID]*checker.Type
 	typeRegistryMu sync.RWMutex
 
-	signatureRegistry   map[Handle[checker.Signature]]*checker.Signature
+	signatureRegistry   map[SignatureID]*checker.Signature
 	signatureNextID     uint64
 	signatureRegistryMu sync.RWMutex
 }
 
 // getProgram looks up a program from a project handle within this snapshot.
-func (sd *snapshotData) getProgram(projectHandle Handle[project.Project]) (*compiler.Program, error) {
+func (sd *snapshotData) getProgram(projectHandle ProjectID) (*compiler.Program, error) {
 	projectName := parseProjectHandle(projectHandle)
 	proj := sd.snapshot.ProjectCollection.GetProjectByPath(projectName)
 	if proj == nil {
@@ -88,8 +88,8 @@ func (sd *snapshotData) registerType(t *checker.Type) *TypeResponse {
 }
 
 // resolveSymbolHandle resolves a symbol handle to a symbol within this snapshot.
-func (sd *snapshotData) resolveSymbolHandle(handle Handle[ast.Symbol]) (*ast.Symbol, error) {
-	if len(handle) == 0 {
+func (sd *snapshotData) resolveSymbolHandle(handle SymbolID) (*ast.Symbol, error) {
+	if handle == 0 {
 		return nil, fmt.Errorf("%w: empty symbol handle", ErrClientError)
 	}
 
@@ -98,15 +98,15 @@ func (sd *snapshotData) resolveSymbolHandle(handle Handle[ast.Symbol]) (*ast.Sym
 	sd.symbolRegistryMu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("%w: symbol handle %q not found in snapshot registry", ErrClientError, handle)
+		return nil, fmt.Errorf("%w: symbol handle %d not found in snapshot registry", ErrClientError, handle)
 	}
 
 	return symbol, nil
 }
 
 // resolveTypeHandle resolves a type handle to a type within this snapshot.
-func (sd *snapshotData) resolveTypeHandle(handle Handle[checker.Type]) (*checker.Type, error) {
-	if len(handle) == 0 {
+func (sd *snapshotData) resolveTypeHandle(handle TypeID) (*checker.Type, error) {
+	if handle == 0 {
 		return nil, fmt.Errorf("%w: empty type handle", ErrClientError)
 	}
 
@@ -115,15 +115,15 @@ func (sd *snapshotData) resolveTypeHandle(handle Handle[checker.Type]) (*checker
 	sd.typeRegistryMu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("%w: type handle %q not found in snapshot registry", ErrClientError, handle)
+		return nil, fmt.Errorf("%w: type handle %d not found in snapshot registry", ErrClientError, handle)
 	}
 
 	return t, nil
 }
 
 // resolveSignatureHandle resolves a signature handle to a signature within this snapshot.
-func (sd *snapshotData) resolveSignatureHandle(handle Handle[checker.Signature]) (*checker.Signature, error) {
-	if len(handle) == 0 {
+func (sd *snapshotData) resolveSignatureHandle(handle SignatureID) (*checker.Signature, error) {
+	if handle == 0 {
 		return nil, fmt.Errorf("%w: empty signature handle", ErrClientError)
 	}
 
@@ -132,7 +132,7 @@ func (sd *snapshotData) resolveSignatureHandle(handle Handle[checker.Signature])
 	sd.signatureRegistryMu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("%w: signature handle %q not found in snapshot registry", ErrClientError, handle)
+		return nil, fmt.Errorf("%w: signature handle %d not found in snapshot registry", ErrClientError, handle)
 	}
 
 	return sig, nil
@@ -161,7 +161,7 @@ func (sd *snapshotData) registerSignature(sig *checker.Signature) *SignatureResp
 	}
 
 	if len(sig.TypeParameters()) > 0 {
-		resp.TypeParameters = make([]Handle[checker.Type], len(sig.TypeParameters()))
+		resp.TypeParameters = make([]TypeID, len(sig.TypeParameters()))
 		for i, tp := range sig.TypeParameters() {
 			resp.TypeParameters[i] = TypeHandle(tp)
 			sd.typeRegistryMu.Lock()
@@ -171,7 +171,7 @@ func (sd *snapshotData) registerSignature(sig *checker.Signature) *SignatureResp
 	}
 
 	if len(sig.Parameters()) > 0 {
-		resp.Parameters = make([]Handle[ast.Symbol], len(sig.Parameters()))
+		resp.Parameters = make([]SymbolID, len(sig.Parameters()))
 		for i, param := range sig.Parameters() {
 			resp.Parameters[i] = SymbolHandle(param)
 			sd.symbolRegistryMu.Lock()
@@ -211,11 +211,11 @@ type Session struct {
 
 	// snapshots maps snapshot handles to their data.
 	// Each snapshot has its own symbol/type registries.
-	snapshots   map[Handle[project.Snapshot]]*snapshotData
+	snapshots   map[SnapshotID]*snapshotData
 	snapshotsMu sync.RWMutex
 
 	// latestSnapshot tracks the most recently created snapshot for computing diffs.
-	latestSnapshot Handle[project.Snapshot]
+	latestSnapshot SnapshotID
 }
 
 // Ensure Session implements Handler
@@ -233,7 +233,7 @@ func NewSession(projectSession *project.Session, options *SessionOptions) *Sessi
 	s := &Session{
 		id:             formatSessionID(id),
 		projectSession: projectSession,
-		snapshots:      make(map[Handle[project.Snapshot]]*snapshotData),
+		snapshots:      make(map[SnapshotID]*snapshotData),
 	}
 	if options != nil {
 		s.useBinaryResponses = options.UseBinaryResponses
@@ -252,17 +252,17 @@ func (s *Session) ProjectSession() *project.Session {
 }
 
 // snapshotHandle creates a snapshot handle from a snapshot's ID.
-func snapshotHandle(snapshot *project.Snapshot) Handle[project.Snapshot] {
-	return Handle[project.Snapshot](fmt.Sprintf("%c%016x", handlePrefixSnapshot, snapshot.ID()))
+func snapshotHandle(snapshot *project.Snapshot) SnapshotID {
+	return SnapshotID(snapshot.ID())
 }
 
 // getSnapshotData looks up snapshot data by handle.
-func (s *Session) getSnapshotData(handle Handle[project.Snapshot]) (*snapshotData, error) {
+func (s *Session) getSnapshotData(handle SnapshotID) (*snapshotData, error) {
 	s.snapshotsMu.RLock()
 	sd, ok := s.snapshots[handle]
 	s.snapshotsMu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("%w: snapshot %s not found", ErrClientError, handle)
+		return nil, fmt.Errorf("%w: snapshot %d not found", ErrClientError, handle)
 	}
 	return sd, nil
 }
@@ -277,7 +277,7 @@ type checkerSetup struct {
 
 // setupChecker resolves snapshot, program, and type checker for a project.
 // Callers must defer setup.done() to release the checker.
-func (s *Session) setupChecker(ctx context.Context, snapshot Handle[project.Snapshot], projectHandle Handle[project.Project]) (checkerSetup, error) {
+func (s *Session) setupChecker(ctx context.Context, snapshot SnapshotID, projectHandle ProjectID) (checkerSetup, error) {
 	sd, err := s.getSnapshotData(snapshot)
 	if err != nil {
 		return checkerSetup{}, err
@@ -494,9 +494,9 @@ func (s *Session) handleUpdateSnapshot(ctx context.Context, params *UpdateSnapsh
 		sd = &snapshotData{
 			snapshot:          snapshot,
 			refCount:          1,
-			symbolRegistry:    make(map[Handle[ast.Symbol]]*ast.Symbol),
-			typeRegistry:      make(map[Handle[checker.Type]]*checker.Type),
-			signatureRegistry: make(map[Handle[checker.Signature]]*checker.Signature),
+			symbolRegistry:    make(map[SymbolID]*ast.Symbol),
+			typeRegistry:      make(map[TypeID]*checker.Type),
+			signatureRegistry: make(map[SignatureID]*checker.Signature),
 		}
 		s.snapshots[handle] = sd
 	}
@@ -533,25 +533,19 @@ func (s *Session) handleUpdateSnapshot(ctx context.Context, params *UpdateSnapsh
 // handleRelease decrements the ref count for a snapshot.
 // The snapshot and its registries are only cleaned up when the ref count reaches zero.
 func (s *Session) handleRelease(ctx context.Context, params *ReleaseParams) (any, error) {
-	if params == nil || len(params.Handle) == 0 {
+	if params == nil || params.Snapshot == 0 {
 		return nil, fmt.Errorf("%w: empty handle", ErrClientError)
 	}
 
-	h := params.Handle
-	if h[0] != handlePrefixSnapshot {
-		return nil, fmt.Errorf("%w: can only release snapshot handles, got prefix %q", ErrClientError, h[0])
-	}
-
-	snapshotHandle := Handle[project.Snapshot](h)
 	s.snapshotsMu.Lock()
-	sd := s.snapshots[snapshotHandle]
+	sd := s.snapshots[params.Snapshot]
 	if sd == nil {
 		s.snapshotsMu.Unlock()
-		return nil, fmt.Errorf("%w: snapshot %s not found", ErrClientError, snapshotHandle)
+		return nil, fmt.Errorf("%w: snapshot %d not found", ErrClientError, params.Snapshot)
 	}
 	sd.refCount--
 	if sd.refCount <= 0 {
-		delete(s.snapshots, snapshotHandle)
+		delete(s.snapshots, params.Snapshot)
 	}
 	s.snapshotsMu.Unlock()
 	return true, nil
@@ -1614,7 +1608,7 @@ func (s *Session) handleGetTypeArguments(ctx context.Context, params *CheckerTyp
 	return results, nil
 }
 
-func (s *Session) resolveNodeHandle(program *compiler.Program, handle Handle[ast.Node]) (*ast.Node, error) {
+func (s *Session) resolveNodeHandle(program *compiler.Program, handle NodeHandle) (*ast.Node, error) {
 	pos, end, kind, path, err := parseNodeHandle(handle)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrClientError, err)
@@ -1697,7 +1691,7 @@ func computeSnapshotChanges(prev *project.Snapshot, next *project.Snapshot) *Sna
 			)
 			if len(projectChanges.ChangedFiles) > 0 || len(projectChanges.DeletedFiles) > 0 {
 				if changes.ChangedProjects == nil {
-					changes.ChangedProjects = make(map[Handle[project.Project]]*ProjectFileChanges)
+					changes.ChangedProjects = make(map[ProjectID]*ProjectFileChanges)
 				}
 				changes.ChangedProjects[ProjectHandle(newProj)] = &projectChanges
 			}

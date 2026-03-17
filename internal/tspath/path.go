@@ -1054,6 +1054,56 @@ func SplitVolumePath(path string) (volume string, rest string, ok bool) {
 	return "", path, false
 }
 
+// GetCommonParent returns the longest common directory path of two paths.
+// Both paths should be absolute and normalized. For example:
+//
+//	GetCommonParent("/a/b/c/d.ts", "/a/b/e/f.ts") => "/a/b"
+//	GetCommonParent("/a/b/c", "/a/b/c/d") => "/a/b/c"
+//	GetCommonParent("/a/b", "/x/y") => "/"
+func GetCommonParent(a, b string, options ComparePathsOptions) string {
+	eq := stringutil.EquateStringCaseSensitive
+	if !options.UseCaseSensitiveFileNames {
+		eq = stringutil.EquateStringCaseInsensitive
+	}
+	limit := min(len(a), len(b))
+	// lastSep tracks the position of the last confirmed-matching separator.
+	// -1 means no separator has matched yet.
+	lastSep := -1
+	for i := range limit {
+		if a[i] == '/' {
+			if b[i] != '/' || (lastSep >= 0 && !eq(a[lastSep+1:i], b[lastSep+1:i])) {
+				if lastSep < 0 {
+					return ""
+				}
+				if lastSep == 0 {
+					return "/"
+				}
+				return a[:lastSep]
+			}
+			lastSep = i
+		}
+	}
+	if lastSep < 0 {
+		return ""
+	}
+	// Check the last segment if one string is a prefix of the other
+	if eq(a[lastSep+1:limit], b[lastSep+1:limit]) {
+		if limit < len(a) && a[limit] == '/' {
+			return a[:limit]
+		}
+		if limit < len(b) && b[limit] == '/' {
+			return a[:limit]
+		}
+		if len(a) == len(b) {
+			return a
+		}
+	}
+	if lastSep == 0 {
+		return "/"
+	}
+	return a[:lastSep]
+}
+
 // GetCommonParents returns the smallest set of directories that are parents of all paths with
 // at least `minComponents` directory components. Any path that has fewer than `minComponents` directory components
 // will be returned in the second return value. Examples:

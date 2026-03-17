@@ -713,6 +713,33 @@ func getNormalizedAbsolutePath_old(fileName string, currentDirectory string) str
 	return GetPathFromPathComponents(GetNormalizedPathComponents(fileName, currentDirectory))
 }
 
+func TestGetCommonParent(t *testing.T) {
+	t.Parallel()
+	opts := ComparePathsOptions{UseCaseSensitiveFileNames: true}
+	tests := []struct {
+		a, b, expected string
+	}{
+		{"/a/b/c/d.ts", "/a/b/e/f.ts", "/a/b"},
+		{"/a/b/c", "/a/b/c/d", "/a/b/c"},
+		{"/a/b", "/x/y", "/"},
+		{"/a/b/c", "/a/b/c", "/a/b/c"},
+		{"/foo/node_modules/bar/proj", "/foo/node_modules/bar/node_modules/pkg/index.d.ts", "/foo/node_modules/bar"},
+		{"/a", "/a", "/a"},
+		{"/a/b", "/a/b", "/a/b"},
+	}
+	for _, tt := range tests {
+		got := GetCommonParent(tt.a, tt.b, opts)
+		if got != tt.expected {
+			t.Errorf("GetCommonParent(%q, %q) = %q, want %q", tt.a, tt.b, got, tt.expected)
+		}
+		// Should be commutative
+		got2 := GetCommonParent(tt.b, tt.a, opts)
+		if got2 != tt.expected {
+			t.Errorf("GetCommonParent(%q, %q) = %q, want %q (reversed)", tt.b, tt.a, got2, tt.expected)
+		}
+	}
+}
+
 func TestGetCommonParents(t *testing.T) {
 	t.Parallel()
 

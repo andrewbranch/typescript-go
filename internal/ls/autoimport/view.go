@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
 	"github.com/microsoft/typescript-go/internal/module"
 	"github.com/microsoft/typescript-go/internal/modulespecifiers"
+	"github.com/microsoft/typescript-go/internal/packagejson"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -29,6 +30,11 @@ type View struct {
 	shouldUseUriStyleNodeCoreModules core.Tristate
 	existingImports                  *collections.MultiMap[ModuleID, existingImport]
 	shouldUseRequireForFixes         *bool
+
+	// bareSpecifierImportPackages is the set of package names that are targeted
+	// by bare specifier entries in the importing file's package.json "imports" field.
+	// Lazily computed; nil means not yet computed, non-nil (possibly empty) means computed.
+	bareSpecifierImportPackages *collections.Set[string]
 }
 
 func NewView(registry *Registry, importingFile *ast.SourceFile, projectKey tspath.Path, program *compiler.Program, preferences modulespecifiers.UserPreferences) *View {
@@ -59,6 +65,68 @@ func (v *View) getAllowedEndings() []modulespecifiers.ModuleSpecifierEnding {
 		)
 	}
 	return v.allowedEndings
+}
+
+// getBareSpecifierImportPackages returns the set of package names that are
+// targeted by bare specifier entries in the importing file's nearest
+// package.json "imports" field. Returns nil if there are none.
+func (v *View) getBareSpecifierImportPackages() *collections.Set[string] {
+	if v.bareSpecifierImportPackages == nil {
+		v.bareSpecifierImportPackages = v.computeBareSpecifierImportPackages()
+	}
+	return v.bareSpecifierImportPackages
+}
+
+func (v *View) computeBareSpecifierImportPackages() *collections.Set[string] {
+	// Return an empty (non-nil) set as sentinel for "computed, no matches"
+	empty := &collections.Set[string]{}
+	if !v.program.Options().GetResolvePackageJsonImports() {
+		return empty
+	}
+	sourceDir := tspath.GetDirectoryPath(v.importingFile.FileName())
+	pjDir := v.program.GetNearestAncestorDirectoryWithPackageJson(sourceDir)
+	if pjDir == "" {
+		return empty
+	}
+	pj := v.program.GetPackageJsonInfo(tspath.CombinePaths(pjDir, "package.json"))
+	if pj == nil || !pj.Exists() || !pj.Contents.Parseable {
+		return empty
+	}
+	imports := pj.Contents.Fields.Imports
+	if imports.Type != packagejson.JSONValueTypeObject {
+		return empty
+	}
+	result := empty
+	for k, value := range imports.AsObject().Entries() {
+		if !strings.HasPrefix(k, "#") || k == "#" || strings.HasPrefix(k, "#/") {
+			continue
+		}
+		collectBarePackageNames(value, result)
+	}
+	return result
+}
+
+// collectBarePackageNames traverses an ExportsOrImports value tree and adds
+// package names from any bare specifier string targets to the result set.
+func collectBarePackageNames(value packagejson.ExportsOrImports, result *collections.Set[string]) {
+	switch value.Type {
+	case packagejson.JSONValueTypeString:
+		str := value.Value.(string)
+		if modulespecifiers.PathIsBareSpecifier(str) {
+			pkgName, _ := module.ParsePackageName(str)
+			if pkgName != "" {
+				result.Add(pkgName)
+			}
+		}
+	case packagejson.JSONValueTypeArray:
+		for _, elem := range value.AsArray() {
+			collectBarePackageNames(elem, result)
+		}
+	case packagejson.JSONValueTypeObject:
+		for _, v := range value.AsObject().Entries() {
+			collectBarePackageNames(v, result)
+		}
+	}
 }
 
 type QueryKind int

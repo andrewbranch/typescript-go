@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/modulespecifiers"
+	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 func (v *View) GetModuleSpecifier(
@@ -19,7 +20,18 @@ func (v *View) GetModuleSpecifier(
 		return string(export.ModuleID), modulespecifiers.ResultKindAmbient
 	}
 
+	// For node_modules exports, check if a #-prefixed subpath import specifier
+	// should be preferred. This is done before the entrypoint fast path so that
+	// package.json "imports" entries take priority.
 	if export.PackageName != "" {
+		if v.getBareSpecifierImportPackages().Has(export.PackageName) {
+			if specifier := v.tryGetSubpathImportSpecifier(export); specifier != "" {
+				if !modulespecifiers.IsExcludedByRegex(specifier, userPreferences.AutoImportSpecifierExcludeRegexes) {
+					return specifier, modulespecifiers.ResultKindNodeModules
+				}
+			}
+		}
+
 		if entrypoints, ok := v.registry.entrypoints[export.Path]; ok {
 			for _, entrypoint := range entrypoints {
 				if entrypoint.IncludeConditions.IsSubsetOf(v.conditions) && !v.conditions.Intersects(entrypoint.ExcludeConditions) {
@@ -72,4 +84,22 @@ func (v *View) GetModuleSpecifier(
 	}
 	cache.Store(export.Path, "")
 	return "", modulespecifiers.ResultKindNone
+}
+
+// tryGetSubpathImportSpecifier attempts to generate a #-prefixed module specifier
+// for a node_modules export using the importing file's package.json "imports" field.
+func (v *View) tryGetSubpathImportSpecifier(export *Export) string {
+	sourceDir := tspath.GetDirectoryPath(v.importingFile.FileName())
+	importMode := v.program.GetDefaultResolutionModeForFile(v.importingFile)
+	allowedEndings := v.getAllowedEndings()
+	preferTsExtension := len(allowedEndings) > 0 && allowedEndings[0] == modulespecifiers.ModuleSpecifierEndingTsExtension
+
+	return modulespecifiers.TryGetModuleNameFromPackageJsonImports(
+		export.ModuleFileName,
+		sourceDir,
+		v.program.Options(),
+		v.program,
+		importMode,
+		preferTsExtension,
+	)
 }

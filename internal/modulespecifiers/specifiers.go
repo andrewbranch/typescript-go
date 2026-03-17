@@ -530,7 +530,7 @@ func getLocalModuleSpecifier(
 
 	var fromPackageJsonImports string
 	if !pathsOnly {
-		fromPackageJsonImports = tryGetModuleNameFromPackageJsonImports(
+		fromPackageJsonImports = TryGetModuleNameFromPackageJsonImports(
 			moduleFileName,
 			sourceDirectory,
 			compilerOptions,
@@ -999,7 +999,9 @@ func tryGetModuleNameFromExports(
 	)
 }
 
-func tryGetModuleNameFromPackageJsonImports(
+// TryGetModuleNameFromPackageJsonImports attempts to generate a #-prefixed
+// module specifier using the importing file's package.json "imports" field.
+func TryGetModuleNameFromPackageJsonImports(
 	moduleFileName string,
 	sourceDirectory string,
 	options *core.CompilerOptions,
@@ -1202,7 +1204,6 @@ func tryGetModuleNameFromExportsOrImports(
 			declarationFile = outputpaths.GetOutputDeclarationFileNameWorker(targetFilePath, options, host)
 		}
 
-		pathOrPattern := tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(packageDirectory, strValue), "")
 		var extensionSwappedTarget string
 		if tspath.HasTSFileExtension(targetFilePath) {
 			extensionSwappedTarget = tspath.RemoveFileExtension(targetFilePath) + module.TryGetJSExtensionForFile(targetFilePath, options)
@@ -1214,66 +1215,36 @@ func tryGetModuleNameFromExportsOrImports(
 			CurrentDirectory:          host.GetCurrentDirectory(),
 		}
 
-		switch mode {
-		case MatchingModeExact:
-			if len(extensionSwappedTarget) > 0 && tspath.ComparePaths(extensionSwappedTarget, pathOrPattern, compareOpts) == 0 ||
-				tspath.ComparePaths(targetFilePath, pathOrPattern, compareOpts) == 0 ||
-				len(outputFile) > 0 && tspath.ComparePaths(outputFile, pathOrPattern, compareOpts) == 0 ||
-				len(declarationFile) > 0 && tspath.ComparePaths(declarationFile, pathOrPattern, compareOpts) == 0 {
-				return packageName
+		// For bare specifier targets in imports (e.g., "#pkg/*": "pkg/src/*"),
+		// module resolution resolves these by searching node_modules directories
+		// starting at the package.json's directory and walking up. For specifier
+		// generation, find the first /node_modules/ segment in the target file
+		// path after the common ancestor of the target and the package.json
+		// directory. That's the node_modules directory that the upward walk from
+		// packageDirectory would find first.
+		if isImports && PathIsBareSpecifier(strValue) {
+			commonParent := tspath.GetCommonParent(targetFilePath, packageDirectory, compareOpts)
+			// Search from the end of commonParent minus 1 so we don't miss a
+			// /node_modules/ that is a direct child of the common parent (where
+			// commonParent's trailing position coincides with the leading /).
+			searchStart := max(len(commonParent)-1, 0)
+			idx := strings.Index(targetFilePath[searchStart:], "/node_modules/")
+			if idx < 0 {
+				return ""
 			}
-		case MatchingModeDirectory:
-			if canTryTsExtension && tspath.ContainsPath(targetFilePath, pathOrPattern, compareOpts) {
-				fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, targetFilePath, compareOpts)
-				return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, strValue), fragment), "")
-			}
-			if len(extensionSwappedTarget) > 0 && tspath.ContainsPath(pathOrPattern, extensionSwappedTarget, compareOpts) {
-				fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, extensionSwappedTarget, compareOpts)
-				return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, strValue), fragment), "")
-			}
-			if !canTryTsExtension && tspath.ContainsPath(pathOrPattern, targetFilePath, compareOpts) {
-				fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, targetFilePath, compareOpts)
-				return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, strValue), fragment), "")
-			}
-			if len(outputFile) > 0 && tspath.ContainsPath(pathOrPattern, outputFile, compareOpts) {
-				fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, outputFile, compareOpts)
-				return tspath.CombinePaths(packageName, fragment)
-			}
-			if len(declarationFile) > 0 && tspath.ContainsPath(pathOrPattern, declarationFile, compareOpts) {
-				fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, declarationFile, compareOpts)
-				jsExtension := getJSExtensionForFile(declarationFile, options)
-				fragmentWithJsExtension := tspath.ChangeExtension(fragment, jsExtension)
-				return tspath.CombinePaths(packageName, fragmentWithJsExtension)
-			}
-		case MatchingModePattern:
-			leadingSlice, trailingSlice, _ := strings.Cut(pathOrPattern, "*")
-			caseSensitive := host.UseCaseSensitiveFileNames()
-			if canTryTsExtension && stringutil.HasPrefixAndSuffixWithoutOverlap(targetFilePath, leadingSlice, trailingSlice, caseSensitive) {
-				starReplacement := targetFilePath[len(leadingSlice) : len(targetFilePath)-len(trailingSlice)]
-				return replaceFirstStar(packageName, starReplacement)
-			}
-			if len(extensionSwappedTarget) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(extensionSwappedTarget, leadingSlice, trailingSlice, caseSensitive) {
-				starReplacement := extensionSwappedTarget[len(leadingSlice) : len(extensionSwappedTarget)-len(trailingSlice)]
-				return replaceFirstStar(packageName, starReplacement)
-			}
-			if !canTryTsExtension && stringutil.HasPrefixAndSuffixWithoutOverlap(targetFilePath, leadingSlice, trailingSlice, caseSensitive) {
-				starReplacement := targetFilePath[len(leadingSlice) : len(targetFilePath)-len(trailingSlice)]
-				return replaceFirstStar(packageName, starReplacement)
-			}
-			if len(outputFile) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(outputFile, leadingSlice, trailingSlice, caseSensitive) {
-				starReplacement := outputFile[len(leadingSlice) : len(outputFile)-len(trailingSlice)]
-				return replaceFirstStar(packageName, starReplacement)
-			}
-			if len(declarationFile) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(declarationFile, leadingSlice, trailingSlice, caseSensitive) {
-				starReplacement := declarationFile[len(leadingSlice) : len(declarationFile)-len(trailingSlice)]
-				substituted := replaceFirstStar(packageName, starReplacement)
-				jsExtension := module.TryGetJSExtensionForFile(declarationFile, options)
-				if len(jsExtension) > 0 {
-					return tspath.ChangeFullExtension(substituted, jsExtension)
-				}
-			}
+			nodeModulesDir := targetFilePath[:searchStart+idx+len("/node_modules/")]
+			pathOrPattern := tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(nodeModulesDir, strValue), "")
+			return matchExportsOrImportsPathOrPattern(
+				targetFilePath, extensionSwappedTarget, outputFile, declarationFile,
+				pathOrPattern, packageName, strValue, mode, canTryTsExtension, compareOpts, options,
+			)
 		}
-		return ""
+
+		pathOrPattern := tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(packageDirectory, strValue), "")
+		return matchExportsOrImportsPathOrPattern(
+			targetFilePath, extensionSwappedTarget, outputFile, declarationFile,
+			pathOrPattern, packageName, strValue, mode, canTryTsExtension, compareOpts, options,
+		)
 	case packagejson.JSONValueTypeArray:
 		arr := exports.AsArray()
 		for _, e := range arr {
@@ -1295,6 +1266,83 @@ func tryGetModuleNameFromExportsOrImports(
 		}
 	case packagejson.JSONValueTypeNull:
 		return ""
+	}
+	return ""
+}
+
+// matchExportsOrImportsPathOrPattern matches a target file path against a resolved
+// pathOrPattern from a package.json exports or imports field.
+func matchExportsOrImportsPathOrPattern(
+	targetFilePath string,
+	extensionSwappedTarget string,
+	outputFile string,
+	declarationFile string,
+	pathOrPattern string,
+	packageName string,
+	targetValue string,
+	mode MatchingMode,
+	canTryTsExtension bool,
+	compareOpts tspath.ComparePathsOptions,
+	options *core.CompilerOptions,
+) string {
+	switch mode {
+	case MatchingModeExact:
+		if len(extensionSwappedTarget) > 0 && tspath.ComparePaths(extensionSwappedTarget, pathOrPattern, compareOpts) == 0 ||
+			tspath.ComparePaths(targetFilePath, pathOrPattern, compareOpts) == 0 ||
+			len(outputFile) > 0 && tspath.ComparePaths(outputFile, pathOrPattern, compareOpts) == 0 ||
+			len(declarationFile) > 0 && tspath.ComparePaths(declarationFile, pathOrPattern, compareOpts) == 0 {
+			return packageName
+		}
+	case MatchingModeDirectory:
+		if canTryTsExtension && tspath.ContainsPath(targetFilePath, pathOrPattern, compareOpts) {
+			fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, targetFilePath, compareOpts)
+			return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, targetValue), fragment), "")
+		}
+		if len(extensionSwappedTarget) > 0 && tspath.ContainsPath(pathOrPattern, extensionSwappedTarget, compareOpts) {
+			fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, extensionSwappedTarget, compareOpts)
+			return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, targetValue), fragment), "")
+		}
+		if !canTryTsExtension && tspath.ContainsPath(pathOrPattern, targetFilePath, compareOpts) {
+			fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, targetFilePath, compareOpts)
+			return tspath.GetNormalizedAbsolutePath(tspath.CombinePaths(tspath.CombinePaths(packageName, targetValue), fragment), "")
+		}
+		if len(outputFile) > 0 && tspath.ContainsPath(pathOrPattern, outputFile, compareOpts) {
+			fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, outputFile, compareOpts)
+			return tspath.CombinePaths(packageName, fragment)
+		}
+		if len(declarationFile) > 0 && tspath.ContainsPath(pathOrPattern, declarationFile, compareOpts) {
+			fragment := tspath.GetRelativePathFromDirectory(pathOrPattern, declarationFile, compareOpts)
+			jsExtension := getJSExtensionForFile(declarationFile, options)
+			fragmentWithJsExtension := tspath.ChangeExtension(fragment, jsExtension)
+			return tspath.CombinePaths(packageName, fragmentWithJsExtension)
+		}
+	case MatchingModePattern:
+		leadingSlice, trailingSlice, _ := strings.Cut(pathOrPattern, "*")
+		caseSensitive := compareOpts.UseCaseSensitiveFileNames
+		if canTryTsExtension && stringutil.HasPrefixAndSuffixWithoutOverlap(targetFilePath, leadingSlice, trailingSlice, caseSensitive) {
+			starReplacement := targetFilePath[len(leadingSlice) : len(targetFilePath)-len(trailingSlice)]
+			return replaceFirstStar(packageName, starReplacement)
+		}
+		if len(extensionSwappedTarget) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(extensionSwappedTarget, leadingSlice, trailingSlice, caseSensitive) {
+			starReplacement := extensionSwappedTarget[len(leadingSlice) : len(extensionSwappedTarget)-len(trailingSlice)]
+			return replaceFirstStar(packageName, starReplacement)
+		}
+		if !canTryTsExtension && stringutil.HasPrefixAndSuffixWithoutOverlap(targetFilePath, leadingSlice, trailingSlice, caseSensitive) {
+			starReplacement := targetFilePath[len(leadingSlice) : len(targetFilePath)-len(trailingSlice)]
+			return replaceFirstStar(packageName, starReplacement)
+		}
+		if len(outputFile) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(outputFile, leadingSlice, trailingSlice, caseSensitive) {
+			starReplacement := outputFile[len(leadingSlice) : len(outputFile)-len(trailingSlice)]
+			return replaceFirstStar(packageName, starReplacement)
+		}
+		if len(declarationFile) > 0 && stringutil.HasPrefixAndSuffixWithoutOverlap(declarationFile, leadingSlice, trailingSlice, caseSensitive) {
+			starReplacement := declarationFile[len(leadingSlice) : len(declarationFile)-len(trailingSlice)]
+			substituted := replaceFirstStar(packageName, starReplacement)
+			jsExtension := module.TryGetJSExtensionForFile(declarationFile, options)
+			if len(jsExtension) > 0 {
+				return tspath.ChangeFullExtension(substituted, jsExtension)
+			}
+		}
 	}
 	return ""
 }

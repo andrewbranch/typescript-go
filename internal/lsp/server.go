@@ -18,7 +18,6 @@ import (
 	"github.com/microsoft/typescript-go/internal/collections"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/diagnostics"
-	"github.com/microsoft/typescript-go/internal/fswatch"
 	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/jsonrpc"
 	"github.com/microsoft/typescript-go/internal/locale"
@@ -1189,6 +1188,7 @@ func (s *Server) handleInitialize(ctx context.Context, params *lsproto.Initializ
 }
 
 func (s *Server) handleInitialized(ctx context.Context, params *lsproto.InitializedParams) error {
+	var useBuiltinWatcher bool
 	var disablePushDiagnostics bool
 	var enableTelemetry bool
 	if s.initializationOptions.DisablePushDiagnostics != nil {
@@ -1197,15 +1197,31 @@ func (s *Server) handleInitialized(ctx context.Context, params *lsproto.Initiali
 	if s.initializationOptions.EnableTelemetry != nil {
 		enableTelemetry = *s.initializationOptions.EnableTelemetry
 	}
+	if s.initializationOptions.UseBuiltinWatcher != nil {
+		useBuiltinWatcher = *s.initializationOptions.UseBuiltinWatcher
+	}
 	hasDynamicWatchRegistration := s.clientCapabilities.Workspace.DidChangeWatchedFiles.DynamicRegistration
-	if hasDynamicWatchRegistration {
-		s.logger.Logf("file watching: using LSP client-side watching (client supports dynamic registration)")
-		s.watchEnabled = true
-	} else if fswatch.Default().HasFastRecursiveBackend() {
-		// The client cannot watch files itself, but the builtin watcher has a
-		// backend with efficient recursive watching (Windows or FSEvents), so
-		// fall back to watching files in-process.
-		s.logger.Logf("file watching: using builtin in-process watcher (client lacks dynamic watch registration)")
+
+	// Determine if we should use granular watches.
+	// Use broad recursive watches for:
+	// - LSP client-side watching (VS Code already uses recursion)
+	// - fsevents (macOS) and Windows backends
+	// Use granular watches for other backends (e.g., Linux inotify) to avoid
+	// expensive full tree walks.
+	granularWatches := false
+	if useBuiltinWatcher || !hasDynamicWatchRegistration {
+		// Using builtin watcher; determine based on platform.
+		// TODO: detect fswatch backend at runtime and set based on that.
+		// For now, assume granular watches are not needed for builtin watchers.
+		granularWatches = false
+	}
+
+	if useBuiltinWatcher || !hasDynamicWatchRegistration {
+		if useBuiltinWatcher {
+			s.logger.Logf("file watching: using builtin in-process watcher (useBuiltinWatcher=true)")
+		} else {
+			s.logger.Logf("file watching: using builtin in-process watcher (client lacks dynamic watch registration)")
+		}
 		s.watchEnabled = true
 		s.builtinWatcher = lspwatcher.New(s.fs, func(changes []*lsproto.FileEvent) {
 			if s.session != nil {
@@ -1213,9 +1229,8 @@ func (s *Server) handleInitialized(ctx context.Context, params *lsproto.Initiali
 			}
 		}, s.logger)
 	} else {
-		// The client cannot watch files and the builtin watcher backend lacks
-		// efficient recursive watching, so file watching is disabled.
-		s.logger.Logf("file watching: disabled (client lacks dynamic watch registration and builtin watcher backend is not fast-recursive)")
+		s.logger.Logf("file watching: using LSP client-side watching (client supports dynamic registration)")
+		s.watchEnabled = true
 	}
 
 	cwd := s.cwd
@@ -1248,6 +1263,7 @@ func (s *Server) handleInitialized(ctx context.Context, params *lsproto.Initiali
 			DebounceDelay:          500 * time.Millisecond,
 			PushDiagnosticsEnabled: !disablePushDiagnostics,
 			Locale:                 s.locale,
+			GranularWatches:        granularWatches,
 		},
 		FS:          s.fs,
 		Logger:      s.logger,

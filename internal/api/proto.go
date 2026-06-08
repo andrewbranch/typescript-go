@@ -828,15 +828,15 @@ const (
 
 type ImportAdderAction struct {
 	Kind                   ImportAdderActionKind `json:"kind"`
-	Symbol                 Handle[ast.Symbol]    `json:"symbol,omitempty"`
+	Symbol                 SymbolID              `json:"symbol,omitempty"`
 	IsValidTypeOnlyUseSite *bool                 `json:"isValidTypeOnlyUseSite,omitempty"`
 }
 
 type GetImportAdderEditsParams struct {
-	Snapshot Handle[project.Snapshot] `json:"snapshot"`
-	Project  Handle[project.Project]  `json:"project"`
-	File     DocumentIdentifier       `json:"file"`
-	Actions  []ImportAdderAction      `json:"actions"`
+	Snapshot SnapshotID          `json:"snapshot"`
+	Project  ProjectID           `json:"project"`
+	File     DocumentIdentifier  `json:"file"`
+	Actions  []ImportAdderAction `json:"actions"`
 }
 
 type TextEdit struct {
@@ -874,11 +874,11 @@ type PrintNodeParams struct {
 
 // FormatNodeForInsertionParams are the parameters for the formatNodeForInsertion method.
 type FormatNodeForInsertionParams struct {
-	Snapshot Handle[project.Snapshot] `json:"snapshot"`
-	Project  Handle[project.Project]  `json:"project"`
-	File     DocumentIdentifier       `json:"file"`     // target file where the node will be inserted
-	Position uint32                   `json:"position"` // UTF-16 code-unit offset of the insertion position in the target file
-	Data     string                   `json:"data"`     // base64-encoded binary AST data for the synthesized node
+	Snapshot SnapshotID         `json:"snapshot"`
+	Project  ProjectID          `json:"project"`
+	File     DocumentIdentifier `json:"file"`     // target file where the node will be inserted
+	Position uint32             `json:"position"` // UTF-16 code-unit offset of the insertion position in the target file
+	Data     string             `json:"data"`     // base64-encoded binary AST data for the synthesized node
 }
 
 // CheckerTypeParams are parameters for checker methods that operate on a type.

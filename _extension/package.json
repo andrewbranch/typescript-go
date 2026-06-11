@@ -89,6 +89,14 @@
                             "experimental"
                         ]
                     },
+                    "typescript.native-preview.useBuiltinWatcher": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Use tsgo's built-in in-process file watcher instead of LSP client watcher registrations.",
+                        "tags": [
+                            "experimental"
+                        ]
+                    },
                     "typescript.native-preview.goMemLimit": {
                         "type": "string",
                         "description": "%native-preview.goMemLimit.description%",

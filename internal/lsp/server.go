@@ -184,9 +184,9 @@ type Server struct {
 	watchers         collections.SyncSet[project.WatcherID]
 	// builtinWatcher is non-nil when the server is running its own
 	// in-process file watcher instead of using LSP-based watching. It
-	// is enabled when the client lacks DynamicRegistration for
-	// workspace/didChangeWatchedFiles and the builtin watcher backend
-	// supports efficient recursive watching (Windows or FSEvents).
+	// is enabled when the client either lacks DynamicRegistration for
+	// workspace/didChangeWatchedFiles or explicitly opts in via the
+	// useBuiltinWatcher initialization option.
 	builtinWatcher *lspwatcher.Watcher
 
 	lastRequestTimeMs atomic.Int64
